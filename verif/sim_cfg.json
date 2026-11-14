@@ -1,0 +1,160 @@
+{
+  "_comment": "Testbench registry for scripts/sim.py. Paths are relative to the repo root.",
+  "vivado_version": "2022.2",
+  "default_timeout_s": 600,
+  "tbs": {
+    "rtl": {
+      "desc": "DUT RTL only (lint/elab check, adder datapath)",
+      "filelists": [
+        "verif/filelist/rtl.f"
+      ],
+      "top": "dma_ip_top",
+      "uvm": false
+    },
+    "ref_adder": {
+      "desc": "User UVM reference, original DUT (expected to FAIL: reset polarity bug)",
+      "filelists": [
+        "verif/filelist/ref_adder.f"
+      ],
+      "top": "testbench",
+      "uvm": true,
+      "default_test": "Test",
+      "expect": "fail"
+    },
+    "ref_adder_fixed": {
+      "desc": "User UVM reference, corrected DUT (expected to PASS)",
+      "filelists": [
+        "verif/filelist/ref_adder_fixed.f"
+      ],
+      "top": "testbench",
+      "uvm": true,
+      "default_test": "Test"
+    },
+    "fifo": {
+      "desc": "sync_fifo depth 64 (as in top) + in/out skid",
+      "filelists": [
+        "verif/filelist/fifo.f"
+      ],
+      "top": "tb_fifo",
+      "uvm": true,
+      "default_test": "unit_smoke_test",
+      "tests": [
+        "unit_smoke_test",
+        "unit_post_reset_test",
+        "unit_rand_test",
+        "unit_backpressure_test",
+        "unit_trickle_test",
+        "unit_fixed_side_test"
+      ],
+      "known_fail": {
+        "unit_post_reset_test": "BUG-001: skid_buffer accepts a beat while s_ready=0 on the first cycle after reset (duplicate beat) - see verif/BUGS.md"
+      }
+    },
+    "fifo_d4": {
+      "desc": "sync_fifo depth 4 (full/empty corner stress)",
+      "filelists": [
+        "verif/filelist/fifo.f"
+      ],
+      "top": "tb_fifo",
+      "uvm": true,
+      "defines": [
+        "FIFO_DEPTH=4",
+        "FIFO_LOG2_DEPTH=2"
+      ],
+      "default_test": "unit_smoke_test",
+      "tests": [
+        "unit_smoke_test",
+        "unit_post_reset_test",
+        "unit_rand_test",
+        "unit_backpressure_test",
+        "unit_trickle_test",
+        "unit_fixed_side_test"
+      ],
+      "known_fail": {
+        "unit_post_reset_test": "BUG-001: skid_buffer accepts a beat while s_ready=0 on the first cycle after reset (duplicate beat) - see verif/BUGS.md"
+      }
+    },
+    "skid": {
+      "desc": "skid_buffer 64-bit",
+      "filelists": [
+        "verif/filelist/skid.f"
+      ],
+      "top": "tb_skid",
+      "uvm": true,
+      "default_test": "unit_smoke_test",
+      "tests": [
+        "unit_smoke_test",
+        "unit_post_reset_test",
+        "unit_rand_test",
+        "unit_backpressure_test",
+        "unit_trickle_test",
+        "unit_fixed_side_test"
+      ],
+      "known_fail": {
+        "unit_post_reset_test": "BUG-001: skid_buffer accepts a beat while s_ready=0 on the first cycle after reset (duplicate beat) - see verif/BUGS.md"
+      }
+    },
+    "adder": {
+      "desc": "axis_adder 64-bit, 2x32-bit lanes (module default) + per-beat ctrl_constant",
+      "filelists": [
+        "verif/filelist/adder.f"
+      ],
+      "top": "tb_adder",
+      "uvm": true,
+      "default_test": "unit_smoke_test",
+      "tests": [
+        "unit_smoke_test",
+        "unit_post_reset_test",
+        "unit_rand_test",
+        "unit_backpressure_test",
+        "unit_trickle_test",
+        "unit_fixed_side_test"
+      ]
+    },
+    "adder8": {
+      "desc": "axis_adder 64-bit, 8x8-bit lanes (as in dma_ip_top)",
+      "filelists": [
+        "verif/filelist/adder.f"
+      ],
+      "top": "tb_adder",
+      "uvm": true,
+      "default_test": "unit_smoke_test",
+      "tests": [
+        "unit_smoke_test",
+        "unit_post_reset_test",
+        "unit_rand_test",
+        "unit_backpressure_test",
+        "unit_trickle_test",
+        "unit_fixed_side_test"
+      ],
+      "defines": [
+        "ADDER_BW=8"
+      ]
+    },
+    "top": {
+      "desc": "dma_ip_top: AXI-Lite master + AXI4 slave memory, RDMA->adder(8-bit lanes)->WDMA",
+      "filelists": [
+        "verif/filelist/top.f"
+      ],
+      "top": "tb_top",
+      "uvm": true,
+      "default_test": "dma_smoke_test",
+      "tests": [
+        "dma_reg_reset_test",
+        "dma_reg_bitbash_test",
+        "dma_smoke_test",
+        "dma_small_test",
+        "dma_rand_test",
+        "dma_4kb_test",
+        "dma_backpressure_test",
+        "dma_aw_backpressure_test",
+        "dma_irq_test",
+        "dma_size_edge_test",
+        "dma_large_test"
+      ],
+      "known_fail": {
+        "dma_aw_backpressure_test": "BUG-002: wdma sends W beats before AW is accepted but only counts beats in W RUN state -> late WLAST, ap_done never asserted - see verif/BUGS.md"
+      }
+    }
+  }
+}

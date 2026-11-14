@@ -1,0 +1,10 @@
+# Jenkins plugins for dma-uvm CI (installed by ci/start-jenkins.ps1)
+configuration-as-code
+job-dsl
+workflow-aggregator
+git
+junit
+htmlpublisher
+timestamper
+# P4: Jenkins as an MCP server (endpoint /mcp-server/mcp)
+mcp-server

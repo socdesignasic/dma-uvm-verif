@@ -1,0 +1,73 @@
+# Jenkins Configuration as Code for the local dma-uvm CI.
+# ${VARS} are supplied by ci/start-jenkins.ps1 at startup. No secrets live in this file.
+jenkins:
+  systemMessage: "dma-uvm CI: UVM regression of dma_ip on Vivado XSim (local PC)"
+  numExecutors: 1            # one build at a time; regress.py parallelises inside the build
+  labelString: "vivado"
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "PYTHON"
+            value: "${PYTHON_EXE}"
+          - key: "XILINX_VIVADO"
+            value: "${XILINX_VIVADO}"
+          - key: "REGRESS_JOBS"
+            value: "${REGRESS_JOBS}"
+
+# No `tool: git:` block: Jenkins uses the default installation ("git" on PATH).
+# A `home: "${GIT_EXE}"` entry was stored literally (not substituted), which made
+# every SCM poll warn "Selected Git installation does not exist".
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github"
+              username: "${GITHUB_USER}"
+              password: "${GITHUB_TOKEN}"
+              description: "GitHub token (taken from `gh auth token` at startup)"
+
+unclassified:
+  location:
+    url: "http://localhost:${JENKINS_PORT}/"
+
+jobs:
+  - script: >
+      pipelineJob('dma-uvm') {
+        description('UVM regression for dma_ip (Vivado 2022.2 XSim). Push to main: smoke. Nightly 02:00: full.')
+        properties {
+          pipelineTriggers {
+            triggers {
+              pollSCM { scmpoll_spec('H/5 * * * *') }
+              cron { spec('H 2 * * *') }
+            }
+          }
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/${GITHUB_REPO}.git')
+                  credentials('github')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+      }
