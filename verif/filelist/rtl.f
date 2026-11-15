@@ -1,5 +1,5 @@
-// DUT RTL: dma_ip_top (adder datapath is the default build)
-// Paths are relative to this file. Order: leaf -> top.
+// DUT RTL: dma_ip_top (adder datapath가 기본 빌드)
+// 경로는 이 파일 기준 상대 경로. 순서: 하위 -> top.
 ../../HW/peri_ip/sync_fifo.v
 ../../HW/peri_ip/skid_buffer.v
 ../../HW/dma_ip/axis_adder.v

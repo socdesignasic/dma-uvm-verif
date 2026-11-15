@@ -1,4 +1,4 @@
-// unit_coverage : beat values (corners, carries) + per-cycle handshake states
+// unit_coverage : beat 값(경계값, carry) + 사이클별 handshake 상태
 class unit_coverage extends uvm_component;
   `uvm_component_utils(unit_coverage)
   uvm_analysis_imp #(vr_item, unit_coverage) in_imp;
@@ -19,12 +19,12 @@ class unit_coverage extends uvm_component;
                                     bins other = {[1:32'h7FFF_FFFF], [32'h8000_0001:32'hFFFF_FFFE]}; }
     cp_side : coverpoint s        { bins zero = {0}; bins one = {1}; bins max = {32'hFFFF_FFFF};
                                     bins other = {[2:32'hFFFF_FFFE]}; }
-    // carry computed in write(): XSim mis-evaluates width-cast coverpoint expressions
+    // carry는 write()에서 계산: XSim은 coverpoint 식 안의 폭 변환(cast)을 잘못 계산함
     cp_lo_carry : coverpoint lo_carry { bins no = {0}; bins yes = {1}; }
     cp_hi_carry : coverpoint hi_carry { bins no = {0}; bins yes = {1}; }
   endgroup
 
-  // per-cycle handshake state: 00 idle, 01 ready-only, 10 stalled, 11 transfer
+  // 사이클별 handshake 상태: 00 idle, 01 ready만, 10 stall, 11 전송
   covergroup cg_cycle;
     option.per_instance = 1;
     cp_in      : coverpoint in_st  { bins st[] = {[0:3]}; }
@@ -33,8 +33,8 @@ class unit_coverage extends uvm_component;
                                      bins stall_release = (2'b10 => 2'b11); }
     cp_out_seq : coverpoint out_st { bins b2b = (2'b11 => 2'b11 => 2'b11);
                                      bins stall_release = (2'b10 => 2'b11); }
-    // informational only: which in/out combinations are reachable depends on
-    // the DUT (e.g. adder: in.ready = !out.valid | out.ready), so weight 0
+    // 참고용: 어떤 in/out 조합이 나올 수 있는지는 DUT에 달려 있음
+    // (예: adder는 in.ready = !out.valid | out.ready). 그래서 weight 0
     x_io : cross cp_in, cp_out { option.weight = 0; }
   endgroup
 

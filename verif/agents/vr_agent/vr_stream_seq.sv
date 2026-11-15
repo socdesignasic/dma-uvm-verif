@@ -1,9 +1,9 @@
-// vr_stream_seq : n_items random beats with optional idle gaps and corner-value bias
+// vr_stream_seq : 랜덤 beat n_items개. 쉬는 간격과 경계값 편향은 선택
 class vr_stream_seq extends uvm_sequence #(vr_item);
   `uvm_object_utils(vr_stream_seq)
   int unsigned n_items        = 100;
-  int unsigned max_delay      = 0;    // idle cycles between beats (upper bound)
-  int unsigned zero_delay_pct = 100;  // P(no idle cycle before a beat)
+  int unsigned max_delay      = 0;    // beat 사이 쉬는 사이클 (상한)
+  int unsigned zero_delay_pct = 100;  // beat 앞에 쉬는 사이클이 없을 확률(%)
   bit          fix_side       = 0;
   bit [31:0]   side_val       = 0;
 
@@ -11,7 +11,7 @@ class vr_stream_seq extends uvm_sequence #(vr_item);
     super.new(name);
   endfunction
 
-  // ~8% data corners, ~15% side corners (adder overflow / wrap stimulus)
+  // data 경계값 약 8%, side 경계값 약 15% (adder overflow / wrap 자극)
   static const bit [63:0] DATA_CORNER[4] = '{64'h0, 64'hFFFF_FFFF_FFFF_FFFF,
                                              64'h7FFF_FFFF_7FFF_FFFF, 64'h8000_0000_8000_0000};
   static const bit [31:0] SIDE_CORNER[3] = '{32'h0, 32'h1, 32'hFFFF_FFFF};

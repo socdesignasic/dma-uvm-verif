@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
-// axi4_if : AXI4 memory-mapped (32-bit addr, 64-bit data, 1-bit ID)
-// The TB is the SLAVE (memory model); the DUT (dma_ip m00) is the master.
+// axi4_if : AXI4 memory-mapped (주소 32비트, 데이터 64비트, ID 1비트)
+// TB가 SLAVE(메모리 모델)이고, DUT(dma_ip m00)가 master입니다.
 // -----------------------------------------------------------------------------
 `include "uvm_macros.svh"
 
@@ -25,7 +25,7 @@ interface axi4_if (input logic clk, input logic rst_n);
   logic        rvalid, rready;
   logic [63:0] rdata;   logic rlast; logic [1:0] rresp; logic [0:0] rid;
 
-  // slave-side clocking block (TB drives *ready on AW/W/AR and the B/R channels)
+  // slave 쪽 clocking block (TB가 AW/W/AR의 *ready와 B/R 채널을 구동)
   clocking cb @(posedge clk);
     default input #1step output #1;
     output awready, wready, bvalid, bresp, bid, arready, rvalid, rdata, rlast, rresp, rid;
@@ -34,14 +34,14 @@ interface axi4_if (input logic clk, input logic rst_n);
            arvalid, araddr, arlen, arsize, arburst, arid, rready;
   endclocking
 
-  // passive monitor clocking block (samples both sides of every handshake)
+  // 수동 monitor용 clocking block (모든 handshake의 양쪽 신호를 샘플링)
   clocking moncb @(posedge clk);
     default input #1step;
     input arvalid, arready, araddr, arlen, arsize, arburst,
           awvalid, awready, awaddr, awlen, awsize, awburst;
   endclocking
 
-  // ---------------- master-side (DUT) protocol checks ----------------
+  // ---------------- master(DUT) 쪽 프로토콜 검사 ----------------
   `define AXI_HOLD(name, v, r, payload) \
     name : assert property (@(posedge clk) disable iff (!rst_n) \
              (v && !r) |=> (v && $stable(payload))) \

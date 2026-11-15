@@ -1,5 +1,5 @@
-// axi4_slv_monitor : publishes every accepted AR / AW as an axi4_burst and checks
-// that the burst is one the DUT may issue (INCR, 8 bytes, aligned, <= 16 beats, no 4KB crossing)
+// axi4_slv_monitor : 받아들인 AR / AW를 모두 axi4_burst로 내보내고,
+// DUT가 낼 수 있는 burst인지 검사 (INCR, 8바이트, 정렬, 16 beat 이하, 4KB 경계 넘지 않음)
 class axi4_slv_monitor extends uvm_monitor;
   `uvm_component_utils(axi4_slv_monitor)
   axi4_vif     vif;

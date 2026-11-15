@@ -1,4 +1,4 @@
-// axil_driver : AXI4-Lite master. Write: AW+W together, then B. Read: AR, then R.
+// axil_driver : AXI4-Lite master. 쓰기: AW와 W를 함께 보낸 뒤 B. 읽기: AR 뒤 R.
 class axil_driver extends uvm_driver #(axil_item);
   `uvm_component_utils(axil_driver)
   axil_vif vif;
@@ -20,7 +20,7 @@ class axil_driver extends uvm_driver #(axil_item);
     end
   endtask
 
-  // AW and W are presented together; each completes on its own handshake
+  // AW와 W를 동시에 내보내고, 각각 자기 handshake에서 끝남
   task do_write(axil_item t);
     vif.cb.awvalid <= 1; vif.cb.awaddr <= t.addr;
     vif.cb.wvalid  <= 1; vif.cb.wdata  <= t.data; vif.cb.wstrb <= t.strb;

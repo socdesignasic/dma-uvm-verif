@@ -1,18 +1,18 @@
-// dma_base_test : builds the env, generates jobs from knobs and runs each with dma_job_seq.
-// Derived tests change knobs in configure() or override run_jobs().
-//   +N_JOBS=<n>   overrides the number of DMA jobs
+// dma_base_test : env를 만들고, 설정값으로 작업을 생성해 각각 dma_job_seq로 실행.
+// 파생 테스트는 configure()에서 설정값을 바꾸거나 run_jobs()를 override함.
+//   +N_JOBS=<n>   DMA 작업 개수를 덮어씀
 class dma_base_test extends uvm_test;
   `uvm_component_utils(dma_base_test)
   dma_env     env;
   dma_env_cfg cfg;
 
-  // job generation knobs (set in configure())
+  // 작업 생성 설정값 (configure()에서 설정)
   int unsigned n_jobs     = 1;
   int unsigned min_beats  = 1;
   int unsigned max_beats  = 64;
-  int unsigned irq_pct    = 0;      // % of jobs completed by interrupt (rest: polling)
-  bit          force_4k   = 0;      // place src/dst so the transfer straddles 4KB pages
-  bit [31:0]   mem_base   = 32'h1000_0000;   // as in SW/mem_copy_test.c
+  int unsigned irq_pct    = 0;      // 인터럽트로 완료하는 작업 비율(%) (나머지는 polling)
+  bit          force_4k   = 0;      // 전송이 4KB 페이지에 걸치도록 src/dst 배치
+  bit [31:0]   mem_base   = 32'h1000_0000;   // SW/mem_copy_test.c와 같음
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
@@ -36,16 +36,16 @@ class dma_base_test extends uvm_test;
               UVM_LOW)
   endfunction
 
-  // Placement is computed procedurally (XSim 2022.2 `dist`/range solving is
-  // unreliable, see verif/README.md). Jobs use disjoint windows so earlier
-  // results never alias a later job.
+  // 위치는 절차적으로 계산함 (XSim 2022.2의 `dist`/범위 풀이를
+  // 믿을 수 없음, verif/README.md 참고). 작업마다 겹치지 않는 영역을 써서
+  // 앞 작업 결과가 뒤 작업과 섞이지 않음.
   function dma_job make_job(int unsigned idx);
     dma_job j = dma_job::type_id::create("job");
-    bit [31:0] win = mem_base + idx * 32'h0010_0000;          // 1MB window per job
+    bit [31:0] win = mem_base + idx * 32'h0010_0000;          // 작업마다 1MB 영역
     int unsigned beats = $urandom_range(max_beats, min_beats);
     j.bytes = beats * BEAT;
     if (force_4k) begin
-      // start 1..(beats-1) beats before a 4KB boundary so the job straddles it
+      // 4KB 경계보다 1..(beats-1) beat 앞에서 시작해 경계에 걸치게 함
       j.src = win + 32'h1000 - BEAT * $urandom_range((beats > 1) ? beats - 1 : 1, 1);
       j.dst = win + 32'h8_0000 + 32'h1000 - BEAT * $urandom_range((beats > 1) ? beats - 1 : 1, 1);
     end else begin
@@ -56,13 +56,13 @@ class dma_base_test extends uvm_test;
       0:       j.value = 0;
       1:       j.value = 32'hFF;
       2:       j.value = 1;
-      default: j.value = $urandom;     // upper 24 bits must be ignored by the DUT
+      default: j.value = $urandom;     // 위 24비트는 DUT가 무시해야 함
     endcase
     j.mode = ($urandom_range(99) < irq_pct) ? DONE_IRQ : DONE_POLL;
     return j;
   endfunction
 
-  // run one job through dma_job_seq on the AXI4-Lite sequencer
+  // AXI4-Lite sequencer에서 dma_job_seq로 작업 하나 실행
   task run_job(dma_job j);
     dma_job_seq seq = dma_job_seq::type_id::create("job_seq");
     seq.env = env;

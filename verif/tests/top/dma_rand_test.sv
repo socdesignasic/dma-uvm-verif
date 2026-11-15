@@ -1,4 +1,4 @@
-// dma_rand_test : 15 jobs of 1..600 beats, 50% IRQ completion, moderate backpressure on AR/W/R/B
+// dma_rand_test : 1..600 beat 작업 15개, 50%는 인터럽트로 완료, AR/W/R/B 중간 정도 backpressure
 class dma_rand_test extends dma_base_test;
   `uvm_component_utils(dma_rand_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

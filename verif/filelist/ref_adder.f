@@ -1,5 +1,5 @@
-// UVM reference as provided (original design.sv)
+// 받은 그대로의 UVM 참고 코드 (원본 design.sv)
 +incdir+../../uvm_reference
-// adder_if.sv is `included by testbench.sv; do not list it separately
+// adder_if.sv는 testbench.sv가 `include하므로 따로 적지 않음
 ../../uvm_reference/design.sv
 ../tb/ref_adder/ref_adder_tb.sv

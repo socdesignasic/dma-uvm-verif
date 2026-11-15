@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-regress.py - run every registered test of the selected TBs over N seeds, in parallel.
+regress.py - 선택한 TB에 등록된 모든 테스트를 seed N개로 병렬 실행합니다.
 
   python scripts/regress.py --suite unit --seeds 3
   python scripts/regress.py --suite all  --seeds 2 --jobs 6
   python scripts/regress.py --tb top --tests dma_smoke_test dma_irq_test
 
-Builds each TB once (serially), then runs (tb, test, seed) jobs in a thread pool.
-Each run calls `sim.py run --no-build --isolate`, so it takes the same code path as
-a single run, but on a private snapshot copy.
-The first seed of every test is --first-seed (reproducible). The rest are random.
-Writes out/regress/<name>/summary.json and junit.xml.
-Exit 0 only if every run matches its expectation (PASS, or XFAIL for known bugs).
+TB마다 한 번씩 (차례로) 빌드한 뒤, (tb, test, seed) 작업을 스레드 풀에서 실행합니다.
+실행마다 `sim.py run --no-build --isolate`를 부르므로 단일 실행과 같은 코드 경로를 타고,
+다만 snapshot의 개인 사본에서 돕니다.
+테스트마다 첫 seed는 --first-seed(재현 가능)이고, 나머지는 랜덤입니다.
+out/regress/<name>/summary.json과 junit.xml을 씁니다.
+모든 실행이 기대와 맞을 때만 종료 코드 0 (PASS, 또는 알려진 버그는 XFAIL).
 """
 from __future__ import annotations
 
@@ -26,6 +26,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+# 한글 출력이 Jenkins/MCP(UTF-8로 읽음)에서 깨지지 않도록 출력 인코딩을 UTF-8로 고정
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parent.parent
 SIM = [sys.executable, str(ROOT / "scripts" / "sim.py")]
 CFG = json.loads((ROOT / "verif" / "sim_cfg.json").read_text(encoding="utf-8"))
@@ -34,7 +39,7 @@ SUITES = {"unit": UNIT, "top": ["top"], "all": UNIT + ["top"]}
 
 
 def build(tb: str, cov: bool) -> bool:
-    if cov:  # code coverage needs xelab options -> build through a short run
+    if cov:  # 코드 커버리지는 xelab 옵션이 필요 -> 짧은 실행으로 빌드
         cmd = SIM + ["run", "--tb", tb, "--cov", "--test", CFG["tbs"][tb]["tests"][0], "--seed", "1"]
     else:
         cmd = SIM + ["lint", "--tb", tb]
@@ -80,13 +85,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tb", nargs="*", default=[])
     ap.add_argument("--suite", choices=sorted(SUITES))
-    ap.add_argument("--tests", nargs="*", help="only these tests (where the TB has them)")
+    ap.add_argument("--tests", nargs="*", help="이 테스트만 실행 (그 TB에 있는 경우)")
     ap.add_argument("--seeds", type=int, default=1)
     ap.add_argument("--first-seed", type=int, default=1)
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 2))
-    ap.add_argument("--timeout", type=int, help="per-run timeout in seconds")
-    ap.add_argument("--cov", action="store_true", help="code-coverage build")
-    ap.add_argument("--name", help="report name under out/regress/ (default: suite or 'custom')")
+    ap.add_argument("--timeout", type=int, help="실행 하나의 타임아웃 (초)")
+    ap.add_argument("--cov", action="store_true", help="코드 커버리지 빌드")
+    ap.add_argument("--name", help="out/regress/ 아래 보고서 이름 (기본: suite 이름 또는 'custom')")
     a = ap.parse_args()
 
     tbs = list(a.tb) + [t for t in SUITES.get(a.suite, []) if t not in a.tb]

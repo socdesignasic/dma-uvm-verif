@@ -1,4 +1,4 @@
-// unit_post_reset_test : valid asserted on the very first cycle out of reset (BUG-001 reproducer)
+// unit_post_reset_test : 리셋이 풀리는 첫 사이클부터 valid를 켬 (BUG-001 재현)
 class unit_post_reset_test extends unit_base_test;
   `uvm_component_utils(unit_post_reset_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

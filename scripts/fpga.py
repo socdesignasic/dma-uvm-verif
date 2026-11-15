@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-fpga.py - single entry point for the FPGA implementation flow (P6, "CD").
+fpga.py - FPGA 구현 흐름의 단일 진입점 (P6, "CD").
 
-  python scripts/fpga.py ooc                 # dma_ip_top alone: synth+P&R @100 MHz, timing/util
-  python scripts/fpga.py ooc --period 7.5    # margin check at 133 MHz
-  python scripts/fpga.py system              # PS7 + DMA block design -> bitstream + XSA
-  python scripts/fpga.py system --impl-strategy default   # Vivado default impl strategy
+  python scripts/fpga.py ooc                 # dma_ip_top 단독: 100 MHz 합성+배치배선, 타이밍/사용량
+  python scripts/fpga.py ooc --period 7.5    # 133 MHz에서 여유 확인
+  python scripts/fpga.py system              # PS7 + DMA block design -> 비트스트림 + XSA
+  python scripts/fpga.py system --impl-strategy default   # Vivado 기본 구현 전략
 
-Outputs (under out/fpga/<mode>/):
-  result.json        verdict, WNS/WHS, utilization, artifact paths, sha256 of bit/xsa
+출력 (out/fpga/<mode>/ 아래):
+  result.json        판정, WNS/WHS, 사용량, 결과물 경로, bit/xsa의 sha256
   timing_summary.rpt, utilization.rpt, vivado.log
-  design_1_wrapper.bit / .xsa      (system only; the XSA is what Vitis consumes)
+  design_1_wrapper.bit / .xsa      (system만. XSA는 Vitis가 읽는 파일)
 
-Exit code: 0 = built and timing met, 1 = timing violated, 2 = tool/build error.
-RTL comes from HW/ only. The IP repo is assembled here from HW/ + ci/vivado/ip/ metadata,
-so the bitstream is always built from exactly the RTL that was verified.
+종료 코드: 0 = 빌드 성공 + 타이밍 만족, 1 = 타이밍 위반, 2 = 도구/빌드 오류.
+RTL은 HW/에서만 가져옵니다. IP repo는 여기서 HW/ + ci/vivado/ip/ 메타데이터로 조립하므로,
+비트스트림은 항상 검증한 RTL 그대로 빌드됩니다.
 """
 from __future__ import annotations
 
@@ -28,6 +28,11 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+# 한글 출력이 Jenkins/MCP(UTF-8로 읽음)에서 깨지지 않도록 출력 인코딩을 UTF-8로 고정
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "out" / "fpga"
@@ -48,7 +53,7 @@ def run_vivado(tcl: Path, out: Path, tclargs: list[str], timeout: int) -> int:
     log = out / "vivado.log"
     cmd = [vivado(), "-mode", "batch", "-nojournal", "-log", str(log), "-source", str(tcl),
            "-tclargs", *tclargs]
-    # Windows .bat wrapper: same quoting/forward-slash rules as sim.py
+    # Windows .bat wrapper: 따옴표/슬래시 규칙은 sim.py와 같음
     line = " ".join(f'"{c}"' if re.search(r"[\s=,;&()^]", c) else c
                     for c in (x.replace("\\", "/") for x in cmd))
     print(">>", line, flush=True)
@@ -96,13 +101,13 @@ def sha256(p: Path) -> str:
 
 
 def assemble_ip_repo(dst: Path) -> Path:
-    """IP repo = packaging metadata (component.xml, xgui) + the RTL tree from HW/."""
+    """IP repo = 패키징 메타데이터 (component.xml, xgui) + HW/의 RTL 트리."""
     ip = dst / "dma_ip_top"
     shutil.rmtree(dst, ignore_errors=True)
     shutil.copytree(VIV / "ip" / "dma_ip_top", ip)
     for sub in ("dma_ip", "peri_ip"):
         shutil.copytree(ROOT / "HW" / sub, ip / sub)
-    # every file the IP declares must exist (catches RTL renames that break packaging)
+    # IP가 선언한 파일은 모두 있어야 함 (RTL 파일 이름이 바뀌어 패키징이 깨지는 경우를 잡음)
     xml = (ip / "component.xml").read_text(encoding="utf-8")
     missing = [f for f in set(re.findall(r"<spirit:name>([\w/]+\.v)</spirit:name>", xml)) if not (ip / f).exists()]
     if missing:
@@ -121,12 +126,12 @@ def git_rev() -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="mode", required=True)
-    p = sub.add_parser("ooc", help="out-of-context synth+P&R of dma_ip_top")
-    p.add_argument("--period", type=float, default=10.0, help="ap_clk period in ns (default 10 = 100 MHz)")
-    p = sub.add_parser("system", help="block design -> bitstream + XSA")
+    p = sub.add_parser("ooc", help="dma_ip_top 단독(out-of-context) 합성+배치배선")
+    p.add_argument("--period", type=float, default=10.0, help="ap_clk 주기, ns 단위 (기본 10 = 100 MHz)")
+    p = sub.add_parser("system", help="block design -> 비트스트림 + XSA")
     p.add_argument("--jobs", type=int, default=6)
     p.add_argument("--impl-strategy", default="Performance_ExplorePostRoutePhysOpt",
-                   help="Vivado impl_1 strategy ('default' = Vivado default). See BUGS.md NOTE-001")
+                   help="Vivado impl_1 전략 ('default' = Vivado 기본값). BUGS.md NOTE-001 참고")
     a = ap.parse_args()
 
     out = OUT / a.mode

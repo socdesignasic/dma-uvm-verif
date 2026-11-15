@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// axil_if : AXI4-Lite (12-bit addr, 32-bit data) + DUT interrupt sideband
+// axil_if : AXI4-Lite (주소 12비트, 데이터 32비트) + DUT 인터럽트 신호
 // -----------------------------------------------------------------------------
 `include "uvm_macros.svh"
 
@@ -19,7 +19,7 @@ interface axil_if (input logic clk, input logic rst_n);
     input  awready, wready, bvalid, bresp, arready, rvalid, rdata, rresp, interrupt;
   endclocking
 
-  // slave-side (DUT) protocol checks
+  // slave(DUT) 쪽 프로토콜 검사
   a_b_hold : assert property (@(posedge clk) disable iff (!rst_n)
                (bvalid && !bready) |=> bvalid)
     else `uvm_error("AXIL_SVA", "BVALID dropped before BREADY")

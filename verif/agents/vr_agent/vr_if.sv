@@ -1,8 +1,8 @@
 // -----------------------------------------------------------------------------
-// vr_if : generic valid/ready stream interface (64-bit data + 32-bit sideband)
-//   side : sideband sampled together with each beat
-//          (axis_adder: ctrl_constant; ignored by FIFO / skid buffer)
-// Protocol checks (SVA) report through UVM so sim.py counts them as UVM_ERROR.
+// vr_if : 범용 valid/ready 스트림 인터페이스 (데이터 64비트 + sideband 32비트)
+//   side : beat와 함께 샘플링되는 sideband
+//          (axis_adder: ctrl_constant. FIFO / skid buffer는 무시)
+// 프로토콜 검사(SVA)는 UVM으로 보고하므로 sim.py가 UVM_ERROR로 셉니다.
 // -----------------------------------------------------------------------------
 `include "uvm_macros.svh"
 
@@ -14,30 +14,30 @@ interface vr_if #(parameter int DW = 64) (input logic clk, input logic rst);
   logic [DW-1:0] data;
   logic [31:0]   side;
 
-  bit chk_en = 1'b1;   // protocol checks on/off (e.g. for error-injection tests)
+  bit chk_en = 1'b1;   // 프로토콜 검사 켜기/끄기 (예: 오류 주입 테스트)
 
-  // master side (TB drives valid/data/side)
+  // master 쪽 (TB가 valid/data/side 구동)
   clocking mcb @(posedge clk);
     default input #1step output #1;
     output valid, data, side;
     input  ready;
   endclocking
 
-  // slave side (TB drives ready)
+  // slave 쪽 (TB가 ready 구동)
   clocking scb @(posedge clk);
     default input #1step output #1;
     output ready;
     input  valid, data;
   endclocking
 
-  // passive monitor
+  // 수동 monitor
   clocking moncb @(posedge clk);
     default input #1step;
     input valid, ready, data, side, rst;
   endclocking
 
-  // ---------------- protocol assertions ----------------
-  // Once valid is high it must stay high with stable data until accepted.
+  // ---------------- 프로토콜 assertion ----------------
+  // valid가 1이 되면 받아들여질 때까지 1을 유지하고 data도 바뀌면 안 됨
   a_hold : assert property (@(posedge clk) disable iff (rst || !chk_en)
              (valid && !ready) |=> (valid && $stable(data)))
     else `uvm_error("VR_SVA", $sformatf("%m: valid dropped or data changed before handshake"))

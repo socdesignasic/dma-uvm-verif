@@ -1,10 +1,10 @@
 {
-  "_comment": "Testbench registry for scripts/sim.py. Paths are relative to the repo root.",
+  "_comment": "scripts/sim.py용 테스트벤치 목록. 경로는 저장소 루트 기준.",
   "vivado_version": "2022.2",
   "default_timeout_s": 600,
   "tbs": {
     "rtl": {
-      "desc": "DUT RTL only (lint/elab check, adder datapath)",
+      "desc": "DUT RTL만 (lint/elaborate 확인, adder datapath)",
       "filelists": [
         "verif/filelist/rtl.f"
       ],
@@ -12,7 +12,7 @@
       "uvm": false
     },
     "ref_adder": {
-      "desc": "User UVM reference, original DUT (expected to FAIL: reset polarity bug)",
+      "desc": "사용자 UVM 참고 코드, 원본 DUT (FAIL이 정상: 리셋 극성 버그)",
       "filelists": [
         "verif/filelist/ref_adder.f"
       ],
@@ -22,7 +22,7 @@
       "expect": "fail"
     },
     "ref_adder_fixed": {
-      "desc": "User UVM reference, corrected DUT (expected to PASS)",
+      "desc": "사용자 UVM 참고 코드, 고친 DUT (PASS가 정상)",
       "filelists": [
         "verif/filelist/ref_adder_fixed.f"
       ],
@@ -31,7 +31,7 @@
       "default_test": "Test"
     },
     "fifo": {
-      "desc": "sync_fifo depth 64 (as in top) + in/out skid",
+      "desc": "sync_fifo 깊이 64 (top과 같음) + 입출력 skid",
       "filelists": [
         "verif/filelist/fifo.f"
       ],
@@ -47,11 +47,11 @@
         "unit_fixed_side_test"
       ],
       "known_fail": {
-        "unit_post_reset_test": "BUG-001: skid_buffer accepts a beat while s_ready=0 on the first cycle after reset (duplicate beat) - see verif/BUGS.md"
+        "unit_post_reset_test": "BUG-001: 리셋 직후 첫 사이클에 skid_buffer가 s_ready=0인데도 beat를 받음 (beat 중복) - verif/BUGS.md 참고"
       }
     },
     "fifo_d4": {
-      "desc": "sync_fifo depth 4 (full/empty corner stress)",
+      "desc": "sync_fifo 깊이 4 (full/empty 경계 집중 시험)",
       "filelists": [
         "verif/filelist/fifo.f"
       ],
@@ -71,11 +71,11 @@
         "unit_fixed_side_test"
       ],
       "known_fail": {
-        "unit_post_reset_test": "BUG-001: skid_buffer accepts a beat while s_ready=0 on the first cycle after reset (duplicate beat) - see verif/BUGS.md"
+        "unit_post_reset_test": "BUG-001: 리셋 직후 첫 사이클에 skid_buffer가 s_ready=0인데도 beat를 받음 (beat 중복) - verif/BUGS.md 참고"
       }
     },
     "skid": {
-      "desc": "skid_buffer 64-bit",
+      "desc": "skid_buffer 64비트",
       "filelists": [
         "verif/filelist/skid.f"
       ],
@@ -91,11 +91,11 @@
         "unit_fixed_side_test"
       ],
       "known_fail": {
-        "unit_post_reset_test": "BUG-001: skid_buffer accepts a beat while s_ready=0 on the first cycle after reset (duplicate beat) - see verif/BUGS.md"
+        "unit_post_reset_test": "BUG-001: 리셋 직후 첫 사이클에 skid_buffer가 s_ready=0인데도 beat를 받음 (beat 중복) - verif/BUGS.md 참고"
       }
     },
     "adder": {
-      "desc": "axis_adder 64-bit, 2x32-bit lanes (module default) + per-beat ctrl_constant",
+      "desc": "axis_adder 64비트, 32비트 lane 2개 (모듈 기본값) + beat마다 ctrl_constant",
       "filelists": [
         "verif/filelist/adder.f"
       ],
@@ -112,7 +112,7 @@
       ]
     },
     "adder8": {
-      "desc": "axis_adder 64-bit, 8x8-bit lanes (as in dma_ip_top)",
+      "desc": "axis_adder 64비트, 8비트 lane 8개 (dma_ip_top과 같음)",
       "filelists": [
         "verif/filelist/adder.f"
       ],
@@ -132,7 +132,7 @@
       ]
     },
     "top": {
-      "desc": "dma_ip_top: AXI-Lite master + AXI4 slave memory, RDMA->adder(8-bit lanes)->WDMA",
+      "desc": "dma_ip_top: AXI-Lite master + AXI4 slave 메모리, RDMA->adder(8비트 lane)->WDMA",
       "filelists": [
         "verif/filelist/top.f"
       ],
@@ -153,7 +153,7 @@
         "dma_large_test"
       ],
       "known_fail": {
-        "dma_aw_backpressure_test": "BUG-002: wdma sends W beats before AW is accepted but only counts beats in W RUN state -> late WLAST, ap_done never asserted - see verif/BUGS.md"
+        "dma_aw_backpressure_test": "BUG-002: wdma가 AW 수락 전에 W beat를 보내지만 W RUN 상태의 beat만 셈 -> WLAST가 늦고 ap_done이 나오지 않음 - verif/BUGS.md 참고"
       }
     }
   }

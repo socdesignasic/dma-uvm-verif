@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit test for protect_rtl.py: python .claude/hooks/test_protect_rtl.py"""
+"""protect_rtl.py 단위 테스트: python .claude/hooks/test_protect_rtl.py"""
 import json
 import subprocess
 import sys
@@ -7,7 +7,7 @@ from pathlib import Path
 
 HOOK = Path(__file__).with_name("protect_rtl.py")
 ROOT = HOOK.parents[2]
-CASES = [  # (tool, input, expected exit code)
+CASES = [  # (도구, 입력, 기대 종료 코드)
     ("Edit", {"file_path": str(ROOT / "HW/peri_ip/skid_buffer.v")}, 2),
     ("Write", {"file_path": "HW/x.v"}, 2),
     ("Edit", {"file_path": "verif/../HW/a.v"}, 2),
@@ -20,7 +20,7 @@ CASES = [  # (tool, input, expected exit code)
     ("Bash", {"command": "grep -n WVALID HW/dma_ip/WDMA/wdma.v"}, 0),
     ("Bash", {"command": "python scripts/sim.py run --tb top > out/x.txt"}, 0),
     ("Read", {"file_path": "HW/dma_ip/dma_ip_top.v"}, 0),
-    # heredoc bodies are file contents, not commands
+    # heredoc 본문은 명령이 아니라 파일 내용
     ("Bash", {"command": "cat > .claude/agents/a.md <<'EOF'\nRead the RTL in HW/ (read-only); never edit HW/x.v\nEOF\nls"}, 0),
     ("Bash", {"command": "cat > HW/x.v <<'EOF'\nmodule x; endmodule\nEOF"}, 2),
     ("Bash", {"command": "python scripts/sim.py lint --tb top > out/lint.txt 2>&1; grep HW/ out/lint.txt"}, 0),

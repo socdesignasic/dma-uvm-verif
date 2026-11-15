@@ -1,6 +1,6 @@
-# Full system build: Zynq PS7 + dma_ip_top block design -> bitstream + XSA.
-# The block design comes from ci/vivado/bd/design_1.tcl (exported from the hand-made project).
-# The IP comes from an IP repo that scripts/fpga.py assembles from HW/ + ci/vivado/ip/.
+# 전체 시스템 빌드: Zynq PS7 + dma_ip_top block design -> 비트스트림 + XSA.
+# block design은 ci/vivado/bd/design_1.tcl에서 가져옴 (손으로 만든 프로젝트에서 export).
+# IP는 scripts/fpga.py가 HW/ + ci/vivado/ip/로 조립한 IP repo에서 가져옴.
 #   vivado -mode batch -source ci/vivado/build_system.tcl -tclargs <out_dir> <ip_repo> <jobs>
 set root    [file normalize [file join [file dirname [info script]] .. ..]]
 set out     [file normalize [lindex $argv 0]]
@@ -25,9 +25,9 @@ add_files -norecurse $wrapper
 set_property top design_1_wrapper [current_fileset]
 update_compile_order -fileset sources_1
 
-# Implementation strategy (no RTL / block-design change): explore placement and routing harder,
-# and run physical optimization after routing. The design misses 100 MHz by ~0.2-0.35 ns with the
-# default strategy (BUGS.md NOTE-001; the hand-made project also had WNS -0.201 ns).
+# 구현 전략 (RTL / block design은 바꾸지 않음): 배치와 배선을 더 열심히 탐색하고,
+# 배선 후 physical optimization을 실행. 기본 전략으로는 100 MHz에 약 0.2-0.35 ns 모자람
+# (BUGS.md NOTE-001. 손으로 만든 프로젝트도 WNS -0.201 ns였음).
 set impl_strategy [expr {[llength $argv] > 3 ? [lindex $argv 3] : "Performance_ExplorePostRoutePhysOpt"}]
 if {$impl_strategy ne "default"} {
   if {[catch {set_property strategy $impl_strategy [get_runs impl_1]} msg]} {

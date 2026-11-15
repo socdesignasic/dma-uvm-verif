@@ -1,4 +1,4 @@
-// axil_agent : sequencer + driver (active master)
+// axil_agent : sequencer + driver (능동 master)
 class axil_agent extends uvm_agent;
   `uvm_component_utils(axil_agent)
   axil_vif       vif;

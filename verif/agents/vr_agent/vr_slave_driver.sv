@@ -1,4 +1,4 @@
-// vr_slave_driver : drives ready with random backpressure and occasional long stalls
+// vr_slave_driver : 랜덤 backpressure와 가끔 긴 stall을 넣어 ready 구동
 class vr_slave_driver extends uvm_component;
   `uvm_component_utils(vr_slave_driver)
   vr_vif vif;

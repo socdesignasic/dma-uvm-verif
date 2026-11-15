@@ -1,13 +1,13 @@
-// dma_env : builds and connects the agents, scoreboard and coverage.
-// Stimulus lives in sequences (verif/sequences/top/), not here.
+// dma_env : agent, scoreboard, coverage를 만들고 연결합니다.
+// 자극은 여기가 아니라 sequence(verif/sequences/top/)에 있습니다.
 class dma_env extends uvm_env;
   `uvm_component_utils(dma_env)
   dma_env_cfg    cfg;
-  axil_agent     axil_agt;   // AXI4-Lite master -> DUT control registers
-  axi4_slv_agent mem_agt;    // AXI4 slave + memory model on DUT m00
+  axil_agent     axil_agt;   // AXI4-Lite master -> DUT 제어 레지스터
+  axi4_slv_agent mem_agt;    // DUT m00에 붙는 AXI4 slave + 메모리 모델
   dma_scoreboard sb;
   dma_coverage   cov;
-  axil_vif       ctl_vif;    // clock + interrupt line for sequences/tests
+  axil_vif       ctl_vif;    // sequence/test가 쓰는 클럭 + 인터럽트 신호
 
   function new(string name, uvm_component parent);
     super.new(name, parent);

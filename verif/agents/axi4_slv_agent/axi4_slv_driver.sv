@@ -1,4 +1,4 @@
-// axi4_slv_driver : drives the slave side of m00 from/to axi4_mem
+// axi4_slv_driver : m00의 slave 쪽을 구동하고 axi4_mem에서 읽고 씀
 //
 //   ar_channel -> ar_q -> r_channel
 //   aw_channel -> aw_q -.
@@ -38,7 +38,7 @@ class axi4_slv_driver extends uvm_component;
     join
   endtask
 
-  // ---------------- read path ----------------
+  // ---------------- 읽기 경로 ----------------
   task ar_channel();
     bit rdy;
     forever begin
@@ -82,11 +82,11 @@ class axi4_slv_driver extends uvm_component;
     end
   endtask
 
-  // ---------------- write path ----------------
+  // ---------------- 쓰기 경로 ----------------
   task aw_channel();
     bit rdy;
     forever begin
-      if (cfg.aw_fixed_wait > 0) begin       // deterministic AW stall
+      if (cfg.aw_fixed_wait > 0) begin       // 정해진 사이클만큼 AW를 멈춤
         vif.cb.awready <= 0;
         do @(vif.cb); while (vif.cb.awvalid !== 1'b1);
         repeat (cfg.aw_fixed_wait - 1) @(vif.cb);
@@ -122,7 +122,7 @@ class axi4_slv_driver extends uvm_component;
     end
   endtask
 
-  // pairs each AW with its W beats, in order
+  // AW 하나와 그 W beat들을 순서대로 짝지음
   task write_engine();
     axi4_burst b;
     bit last;
@@ -153,7 +153,7 @@ class axi4_slv_driver extends uvm_component;
     end
   endtask
 
-  // nothing may be left half-done when the test ends
+  // 테스트가 끝날 때 처리 중인 것이 남아 있으면 안 됨
   function void check_phase(uvm_phase phase);
     if (ar_q.size() || aw_q.size() || b_q.size() || w_data_q.size())
       `uvm_error("AXI_PENDING", $sformatf("pending at end: AR=%0d AW=%0d W beats=%0d B=%0d",

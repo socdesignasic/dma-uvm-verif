@@ -1,5 +1,5 @@
-// dma_ip_top UVM environment
-// Each *_pkg.sv `includes its class files (one class per file) from its own directory.
+// dma_ip_top UVM 환경
+// 각 *_pkg.sv가 자기 디렉터리의 클래스 파일(파일 하나에 클래스 하나)을 `include함.
 -f rtl.f
 +incdir+../agents/axil_agent
 +incdir+../agents/axi4_slv_agent

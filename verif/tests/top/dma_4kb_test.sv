@@ -1,4 +1,4 @@
-// dma_4kb_test : 15 jobs placed so src and dst straddle 4KB pages (burst split)
+// dma_4kb_test : src와 dst가 4KB 페이지 경계에 걸치도록 배치한 작업 15개 (burst 분할)
 class dma_4kb_test extends dma_base_test;
   `uvm_component_utils(dma_4kb_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

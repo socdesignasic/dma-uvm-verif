@@ -1,7 +1,7 @@
-// dma_reg_bitbash_seq : walking-1 / walking-0 write+read on every RW register.
-// For each implemented bit k: write (1<<k) and mask&~(1<<k), read back, compare all
-// 32 bits (unimplemented bits must read 0). Registers are left at 0.
-// AP_CTRL (writing ap_start launches the DMA) and ISR (clear on read) are excluded.
+// dma_reg_bitbash_seq : 모든 RW 레지스터에 walking-1 / walking-0을 쓰고 읽음.
+// 구현된 비트 k마다 (1<<k)와 mask&~(1<<k)를 쓰고 다시 읽어 32비트 전체를
+// 비교 (구현 안 된 비트는 0이어야 함). 끝나면 레지스터는 0으로 둠.
+// AP_CTRL(ap_start를 쓰면 DMA가 시작됨)과 ISR(읽으면 지워짐)은 제외.
 class dma_reg_bitbash_seq extends axil_base_seq;
   `uvm_object_utils(dma_reg_bitbash_seq)
 

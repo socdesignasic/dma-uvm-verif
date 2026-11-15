@@ -1,5 +1,5 @@
-// UVM infrastructure shared by unit TBs (vr agent, unit env, unit tests)
-// Each *_pkg.sv `includes its class files (one class per file) from its own directory.
+// unit TB들이 함께 쓰는 UVM 기반 코드 (vr agent, unit env, unit 테스트)
+// 각 *_pkg.sv가 자기 디렉터리의 클래스 파일(파일 하나에 클래스 하나)을 `include함.
 +incdir+../agents/vr_agent
 +incdir+../env/unit
 +incdir+../tests/unit

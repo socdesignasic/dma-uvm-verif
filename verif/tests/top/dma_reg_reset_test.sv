@@ -1,4 +1,4 @@
-// dma_reg_reset_test : every register reads its reset value (dma_reg_reset_seq)
+// dma_reg_reset_test : 모든 레지스터가 리셋 값으로 읽히는지 확인 (dma_reg_reset_seq)
 class dma_reg_reset_test extends dma_base_test;
   `uvm_component_utils(dma_reg_reset_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

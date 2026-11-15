@@ -1,8 +1,8 @@
-# Jenkins Configuration as Code for the local dma-uvm CI.
-# ${VARS} are supplied by ci/start-jenkins.ps1 at startup. No secrets live in this file.
+# 로컬 dma-uvm CI의 Jenkins Configuration as Code.
+# ${VARS}는 시작할 때 ci/start-jenkins.ps1이 넣어 줌. 이 파일에는 비밀값이 없음.
 jenkins:
   systemMessage: "dma-uvm CI: UVM regression of dma_ip on Vivado XSim (local PC)"
-  numExecutors: 1            # one build at a time; regress.py parallelises inside the build
+  numExecutors: 1            # 빌드는 한 번에 하나. 병렬 실행은 빌드 안에서 regress.py가 함
   labelString: "vivado"
   mode: NORMAL
   securityRealm:
@@ -24,9 +24,9 @@ jenkins:
           - key: "REGRESS_JOBS"
             value: "${REGRESS_JOBS}"
 
-# No `tool: git:` block: Jenkins uses the default installation ("git" on PATH).
-# A `home: "${GIT_EXE}"` entry was stored literally (not substituted), which made
-# every SCM poll warn "Selected Git installation does not exist".
+# `tool: git:` 블록 없음: Jenkins는 기본 설치(PATH의 "git")를 사용.
+# 예전에 `home: "${GIT_EXE}"` 항목이 치환되지 않고 글자 그대로 저장돼서,
+# SCM poll마다 "Selected Git installation does not exist" 경고가 났음.
 
 credentials:
   system:
@@ -37,7 +37,7 @@ credentials:
               id: "github"
               username: "${GITHUB_USER}"
               password: "${GITHUB_TOKEN}"
-              description: "GitHub token (taken from `gh auth token` at startup)"
+              description: "GitHub 토큰 (시작할 때 `gh auth token`으로 가져옴)"
 
 unclassified:
   location:
@@ -46,7 +46,7 @@ unclassified:
 jobs:
   - script: >
       pipelineJob('dma-uvm') {
-        description('UVM regression for dma_ip (Vivado 2022.2 XSim). Push to main: smoke. Nightly 02:00: full.')
+        description('dma_ip UVM 회귀 (Vivado 2022.2 XSim). main에 push: smoke. 매일 02:00: full.')
         properties {
           pipelineTriggers {
             triggers {

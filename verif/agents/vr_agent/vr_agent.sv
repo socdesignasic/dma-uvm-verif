@@ -1,4 +1,4 @@
-// vr_agent : builds monitor + (master: sequencer, master driver | slave: slave driver)
+// vr_agent : monitor + (master: sequencer, master driver | slave: slave driver)를 만듦
 class vr_agent extends uvm_agent;
   `uvm_component_utils(vr_agent)
   vr_cfg           cfg;

@@ -1,4 +1,4 @@
-// dma_small_test : 30 jobs of 1..20 beats: partial bursts, single beat
+// dma_small_test : 1..20 beat 작업 30개: 덜 찬 burst, beat 하나짜리
 class dma_small_test extends dma_base_test;
   `uvm_component_utils(dma_small_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

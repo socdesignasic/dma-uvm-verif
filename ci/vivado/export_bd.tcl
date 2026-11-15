@@ -1,5 +1,5 @@
-# One-time: export the block design of the hand-made Vivado project to a re-creatable TCL.
-# The project is opened READ-ONLY, so nothing in mem_copy_vivado/ is modified.
+# 한 번만 실행: 손으로 만든 Vivado 프로젝트의 block design을 다시 만들 수 있는 TCL로 export.
+# 프로젝트를 읽기 전용으로 열기 때문에 mem_copy_vivado/ 안은 아무것도 바뀌지 않음.
 #   vivado -mode batch -source ci/vivado/export_bd.tcl
 set root [file normalize [file join [file dirname [info script]] .. ..]]
 open_project -read_only [file join $root mem_copy_vivado mem_copy_vivado.xpr]

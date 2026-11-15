@@ -1,4 +1,4 @@
-// unit_backpressure_test : heavy backpressure: fill the FIFO, exercise skid state
+// unit_backpressure_test : 강한 backpressure: FIFO를 가득 채우고 skid 상태를 동작시킴
 class unit_backpressure_test extends unit_base_test;
   `uvm_component_utils(unit_backpressure_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

@@ -1,9 +1,9 @@
-// axi4_burst : one accepted AR or AW request
+// axi4_burst : 받아들인 AR 또는 AW 요청 하나
 class axi4_burst extends uvm_object;
   `uvm_object_utils(axi4_burst)
   bit        is_write;
   bit [31:0] addr;
-  bit [7:0]  len;      // beats - 1
+  bit [7:0]  len;      // beat 수 - 1
   bit [2:0]  size;
   bit [1:0]  burst;
   time       t;
@@ -13,7 +13,7 @@ class axi4_burst extends uvm_object;
   endfunction
 
   function int unsigned beats(); return len + 1; endfunction
-  function bit [31:0] end_addr(); return addr + beats() * 8; endfunction  // exclusive
+  function bit [31:0] end_addr(); return addr + beats() * 8; endfunction  // 끝 주소 (이 주소는 포함하지 않음)
 
   virtual function string convert2string();
     return $sformatf("%s addr=0x%08h len=%0d (%0d beats) size=%0d burst=%0d",

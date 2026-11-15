@@ -1,6 +1,6 @@
-// axi4_slv_agent : config + memory + driver + monitor
-//   mem   : the memory model, shared with the env (tests fill it, the scoreboard reads it)
-//   ar_ap / aw_ap : accepted bursts from the monitor
+// axi4_slv_agent : 설정 + 메모리 + driver + monitor
+//   mem   : 메모리 모델. env와 공유 (테스트가 채우고 scoreboard가 읽음)
+//   ar_ap / aw_ap : monitor가 보내는, 받아들인 burst
 class axi4_slv_agent extends uvm_agent;
   `uvm_component_utils(axi4_slv_agent)
   axi4_vif         vif;

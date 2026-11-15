@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-sim.py - single entry point for Vivado XSim simulation.
+sim.py - Vivado XSim 시뮬레이션의 단일 진입점.
 
-Jenkins, the vivado MCP server and humans all call THIS script, so a result
-seen locally is the same result CI sees.
+Jenkins, vivado MCP 서버, 사람이 모두 이 스크립트를 부르므로
+로컬에서 본 결과가 CI가 보는 결과와 같습니다.
 
   python scripts/sim.py list
   python scripts/sim.py lint  --tb rtl
@@ -11,12 +11,12 @@ seen locally is the same result CI sees.
   python scripts/sim.py run   --tb top --test dma_smoke_test --seed 1234 --cov --wave
   python scripts/sim.py cov-report --tb ref_adder_fixed
 
-Outputs (under out/):
-  out/<tb>/build/                 xvlog/xelab logs + snapshot
+출력 (out/ 아래):
+  out/<tb>/build/                 xvlog/xelab 로그 + snapshot
   out/<tb>/runs/<test>_<seed>/    run.log, result.json, junit.xml [, wave.wdb]
 
-Exit code: 0 = result matches expectation (PASS, or XFAIL for "expect": "fail"),
-           1 = test result mismatch, 2 = build/tool error.
+종료 코드: 0 = 결과가 기대와 맞음 (PASS, 또는 "expect": "fail"이면 XFAIL),
+           1 = 테스트 결과 불일치, 2 = 빌드/도구 오류.
 """
 from __future__ import annotations
 
@@ -32,16 +32,21 @@ import time
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+# 한글 출력이 Jenkins/MCP(UTF-8로 읽음)에서 깨지지 않도록 출력 인코딩을 UTF-8로 고정
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parent.parent
 CFG_PATH = ROOT / "verif" / "sim_cfg.json"
 OUT = ROOT / "out"
 
 
 # --------------------------------------------------------------------------- #
-# Tool discovery
+# 도구 찾기
 # --------------------------------------------------------------------------- #
 def vivado_bin(cfg: dict) -> Path:
-    """XILINX_VIVADO env -> PATH -> default install location."""
+    """XILINX_VIVADO 환경 변수 -> PATH -> 기본 설치 위치 순으로 찾음."""
     env = os.environ.get("XILINX_VIVADO")
     if env and (Path(env) / "bin").is_dir():
         return Path(env) / "bin"
@@ -61,7 +66,7 @@ def tool(cfg: dict, name: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Filelist parsing (.f): files, +incdir+, +define+, -f nested, // or # comments
+# filelist(.f) 파싱: 파일, +incdir+, +define+, 중첩 -f, // 또는 # 주석
 # --------------------------------------------------------------------------- #
 def parse_filelist(path: Path, acc=None) -> dict:
     acc = acc or {"files": [], "incdirs": [], "defines": []}
@@ -87,7 +92,7 @@ def parse_filelist(path: Path, acc=None) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# Helpers
+# 보조 함수
 # --------------------------------------------------------------------------- #
 def load_cfg() -> dict:
     return json.loads(CFG_PATH.read_text(encoding="utf-8"))
@@ -100,12 +105,12 @@ def get_tb(cfg: dict, name: str) -> dict:
 
 
 def win_cmdline(cmd: list[str]) -> str:
-    """Vivado tools on Windows are .bat wrappers; cmd.exe splits unquoted args on
-    '=' ',' ';' (e.g. UVM_TESTNAME=foo -> 'UVM_TESTNAME' 'foo'). Quote those."""
+    """Windows의 Vivado 도구는 .bat wrapper라서, cmd.exe가 따옴표 없는 인자를
+    '=' ',' ';'에서 나눔 (예: UVM_TESTNAME=foo -> 'UVM_TESTNAME' 'foo'). 그래서 따옴표로 감쌈."""
     out = []
     for c in cmd:
-        # Backslash paths end up inside XSim-generated C strings ("\U", "\D" ...)
-        # and break code-coverage elaboration. Forward slashes work everywhere.
+        # 역슬래시 경로는 XSim이 만드는 C 문자열 안에 들어가 ("\U", "\D" ...)
+        # 코드 커버리지 elaboration을 깨뜨림. 슬래시(/)는 어디서나 동작함.
         c = c.replace("\\", "/")
         out.append(f'"{c}"' if re.search(r'[\s=,;&()^]', c) and not c.startswith('"') else c)
     return " ".join(out)
@@ -130,7 +135,7 @@ def count_errors(log: Path) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
-# Build (xvlog + xelab)
+# 빌드 (xvlog + xelab)
 # --------------------------------------------------------------------------- #
 def build(cfg: dict, tb_name: str, defines: list[str], cov: bool, wave: bool) -> Path:
     tb = get_tb(cfg, tb_name)
@@ -183,15 +188,15 @@ def build(cfg: dict, tb_name: str, defines: list[str], cov: bool, wave: bool) ->
 
 
 # --------------------------------------------------------------------------- #
-# Run (xsim) + result judgement
+# 실행 (xsim) + 결과 판정
 # --------------------------------------------------------------------------- #
 UVM_CNT = re.compile(r"^\s*(UVM_INFO|UVM_WARNING|UVM_ERROR|UVM_FATAL)\s*:\s*(\d+)\s*$", re.M)
-UVM_MSG = re.compile(r"^(UVM_ERROR|UVM_FATAL)\s+(?!:).*$", re.M)  # skip summary "UVM_ERROR :  N"
+UVM_MSG = re.compile(r"^(UVM_ERROR|UVM_FATAL)\s+(?!:).*$", re.M)  # 요약 줄 "UVM_ERROR :  N"은 건너뜀
 
 
 def judge(log: Path, uvm: bool, rc: int) -> dict:
     txt = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
-    counts = {k: int(v) for k, v in UVM_CNT.findall(txt)}  # last summary wins
+    counts = {k: int(v) for k, v in UVM_CNT.findall(txt)}  # 마지막 요약을 사용
     tool_errs = [l for l in txt.splitlines() if re.match(r"^\s*(ERROR|FATAL_ERROR):", l)]
     msg_lines = [m.group(0) for m in UVM_MSG.finditer(txt)]
     reasons = []
@@ -267,7 +272,7 @@ def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:
                 "--testplusarg", f"UVM_VERBOSITY={a.verbosity}"]
     for p in a.plusarg:
         cmd += ["--testplusarg", p]
-    # functional coverage (covergroups) is always collected, one DB per run
+    # 기능 커버리지(covergroup)는 항상 수집, 실행마다 DB 하나
     cmd += ["--cov_db_dir", str(rdir / "funccov"), "--cov_db_name", f"{test}_{seed}"]
     if a.wave:
         if not meta["wave"]:
@@ -278,7 +283,7 @@ def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:
     else:
         cmd += ["--runall"]
 
-    # --isolate: private copy of the snapshot so parallel runs never share xsim.dir
+    # --isolate: snapshot 개인 사본을 써서 병렬 실행끼리 xsim.dir를 공유하지 않게 함
     cwd = bdir
     if a.isolate:
         shutil.copytree(bdir / "xsim.dir", rdir / "xsim.dir")
@@ -290,7 +295,7 @@ def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:
         shutil.rmtree(rdir / "xsim.dir", ignore_errors=True)
 
     res = judge(log, tb.get("uvm", False), rc)
-    # expected failures: whole TB ("expect": "fail") or a tracked RTL bug per test
+    # 예상된 실패: TB 전체("expect": "fail") 또는 테스트별로 추적 중인 RTL 버그
     known = tb.get("known_fail", {}).get(test)
     expect_fail = tb.get("expect") == "fail" or known is not None
     if known:
@@ -322,7 +327,7 @@ def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:
 
 
 # --------------------------------------------------------------------------- #
-# Coverage report (xcrg)
+# 커버리지 보고서 (xcrg)
 # --------------------------------------------------------------------------- #
 def cov_report(cfg: dict, a) -> int:
     bdir = OUT / a.tb / "build"
@@ -332,11 +337,11 @@ def cov_report(cfg: dict, a) -> int:
     meta = json.loads(meta_p.read_text())
     snap = meta["snapshot"]
     rep = OUT / a.tb / "cov"
-    # xcrg APPENDS to an existing text report instead of replacing it, so stale scores
-    # would stay at the top of the file: always start from an empty report dir
+    # xcrg는 기존 텍스트 보고서를 바꾸지 않고 뒤에 덧붙이므로, 옛 점수가 파일
+    # 맨 위에 남음: 항상 빈 보고서 디렉터리에서 시작
     shutil.rmtree(rep, ignore_errors=True)
     rep.mkdir(parents=True, exist_ok=True)
-    # NOTE: xcrg.bat exits 127 even on success (2022.2), so judge by log/output.
+    # 참고: xcrg.bat는 성공해도 127로 끝나므로 (2022.2) 로그/출력으로 판정.
     def xcrg_ok(log: Path, out_dir: Path) -> bool:
         txt = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
         bad = "could not be completed" in txt or re.search(r"^\s*ERROR", txt, re.M)
@@ -350,12 +355,12 @@ def cov_report(cfg: dict, a) -> int:
         ok &= xcrg_ok(rep / "xcrg_code.log", rep / "code")
     else:
         print("INFO: build has no code coverage (use run --cov); functional coverage only")
-    # merge functional coverage of all runs (only exists once covergroups are added)
+    # 모든 실행의 기능 커버리지를 합침 (covergroup이 있을 때만 존재)
     runs = sorted((OUT / a.tb / "runs").glob("*/funccov/xsim.covdb"))
     if runs:
         lst = rep / "funccov_dbs.txt"
         lst.write_text("\n".join(p.as_posix() for p in runs), encoding="utf-8")
-        run_tool([tool(cfg, "xcrg"), "-report_format", "all", "-file", str(lst),   # html + text
+        run_tool([tool(cfg, "xcrg"), "-report_format", "all", "-file", str(lst),   # html + 텍스트
                   "-merge_dir", str(rep / "merged"), "-report_dir", str(rep / "func"),
                   "-log", str(rep / "xcrg_func.log")], bdir)
         ok &= xcrg_ok(rep / "xcrg_func.log", rep / "func")
@@ -371,13 +376,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("list", help="list registered testbenches")
+    sub.add_parser("list", help="등록된 테스트벤치 목록")
 
-    p = sub.add_parser("lint", help="compile + elaborate only")
+    p = sub.add_parser("lint", help="컴파일 + elaborate만")
     p.add_argument("--tb", required=True)
     p.add_argument("--define", action="append", default=[])
 
-    p = sub.add_parser("run", help="build (unless --no-build) and simulate one test/seed")
+    p = sub.add_parser("run", help="빌드 (--no-build가 아니면) 후 테스트/seed 하나 시뮬레이션")
     p.add_argument("--tb", required=True)
     p.add_argument("--test")
     p.add_argument("--seed", default="1")
@@ -388,10 +393,10 @@ def main() -> int:
     p.add_argument("--cov", action="store_true")
     p.add_argument("--wave", action="store_true")
     p.add_argument("--no-build", action="store_true")
-    p.add_argument("--repeat", type=int, default=1, help="run N seeds (first = --seed, rest random)")
-    p.add_argument("--isolate", action="store_true", help="run on a private snapshot copy (parallel-safe)")
+    p.add_argument("--repeat", type=int, default=1, help="seed N개 실행 (첫째 = --seed, 나머지는 랜덤)")
+    p.add_argument("--isolate", action="store_true", help="snapshot 개인 사본에서 실행 (병렬 실행에 안전)")
 
-    p = sub.add_parser("cov-report", help="generate code + functional coverage HTML")
+    p = sub.add_parser("cov-report", help="코드 + 기능 커버리지 HTML 생성")
     p.add_argument("--tb", required=True)
 
     a = ap.parse_args()

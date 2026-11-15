@@ -1,4 +1,4 @@
-// vr_master_driver : drives valid/data/side from sequence items, holds until ready
+// vr_master_driver : sequence item으로 valid/data/side를 구동하고 ready까지 유지
 class vr_master_driver extends uvm_driver #(vr_item);
   `uvm_component_utils(vr_master_driver)
   vr_vif vif;
@@ -21,7 +21,7 @@ class vr_master_driver extends uvm_driver #(vr_item);
       vif.mcb.data  <= req.data;
       vif.mcb.side  <= req.side;
       do @(vif.mcb); while (vif.mcb.ready !== 1'b1);
-      vif.mcb.valid <= 1'b0;     // overridden in the same step for back-to-back
+      vif.mcb.valid <= 1'b0;     // back-to-back이면 같은 step에서 다시 덮어씀
       seq_item_port.item_done();
     end
   endtask

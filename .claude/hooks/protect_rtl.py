@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-PreToolUse hook: block any file edit under HW/ (DUT RTL is read-only for agents).
-Reads the hook JSON on stdin; exit code 2 blocks the call and shows stderr to the model.
-Covers Edit / Write / MultiEdit / NotebookEdit, plus Bash/PowerShell commands that
-obviously write into HW/ (redirection, sed -i, cp/mv/rm, Set-Content, ...).
+PreToolUse hook: HW/ 아래 파일 수정을 모두 막습니다 (에이전트에게 DUT RTL은 읽기 전용).
+stdin으로 hook JSON을 읽고, 종료 코드 2를 내면 호출이 막히고 stderr가 모델에게 보입니다.
+Edit / Write / MultiEdit / NotebookEdit와, HW/에 쓰는 것이 분명한 Bash/PowerShell 명령
+(리디렉션, sed -i, cp/mv/rm, Set-Content 등)을 막습니다.
 """
 import json
 import re
@@ -45,10 +45,10 @@ def main() -> int:
     return 0
 
 
-# a path token that is (or is inside) HW/: start of token, ./, a quote, or an absolute .../PRJ/HW/
+# HW/ 자체이거나 그 안을 가리키는 경로: 토큰 시작, ./, 따옴표, 또는 절대 경로 .../PRJ/HW/
 _HW = r"""(?:^|[\s"'=(])(?:\.?[/\\])?(?:[^\s"'|;&]*[/\\]PRJ[/\\])?HW[/\\]"""
 _WRITE_PATTERNS = [
-    r">>?\s*['\"]?" + r"(?:\.?[/\\])?(?:[^\s\"'|;&]*[/\\]PRJ[/\\])?HW[/\\]",          # redirect into HW/
+    r">>?\s*['\"]?" + r"(?:\.?[/\\])?(?:[^\s\"'|;&]*[/\\]PRJ[/\\])?HW[/\\]",          # HW/로 리디렉션
     r"\bsed\s+(?:-\w+\s+)*-i\b[^|;&\n]*" + _HW,                                    # sed -i ... HW/x
     r"\b(?:cp|mv|rm|del|touch|tee|truncate|install|patch|dd)\b[^|;&\n]*" + _HW,
     r"\bgit\s+(?:checkout|restore|apply|rm|mv)\b[^|;&\n]*" + _HW,
@@ -57,7 +57,7 @@ _WRITE_PATTERNS = [
 
 
 def shell_writes_hw(cmd: str) -> bool:
-    # heredoc bodies are data (file contents), not commands: drop them before matching
+    # heredoc 본문은 명령이 아니라 데이터(파일 내용)이므로 검사 전에 뺌
     cmd = re.sub(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n\2[ \t]*(?=\n|$)", "<<HEREDOC", cmd, flags=re.S)
     return any(re.search(p, cmd, re.I | re.M) for p in _WRITE_PATTERNS)
 
@@ -65,6 +65,6 @@ def shell_writes_hw(cmd: str) -> bool:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as exc:  # fail closed: a broken guard must not silently allow edits
+    except Exception as exc:  # 오류 시 막음: 검사기가 고장 나도 수정이 조용히 허용되면 안 됨
         print(f"protect_rtl hook error ({exc!r}); blocking to be safe", file=sys.stderr)
         sys.exit(2)

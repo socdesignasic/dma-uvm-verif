@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
-// sync_fifo with input/output skid buffers, same params as dma_ip_top
-// (+define+FIFO_DEPTH=4+FIFO_LOG2_DEPTH=2 for the shallow variant)
+// 입출력 skid buffer가 붙은 sync_fifo, 파라미터는 dma_ip_top과 같음
+// (얕은 버전은 +define+FIFO_DEPTH=4+FIFO_LOG2_DEPTH=2)
 `ifndef FIFO_DEPTH
   `define FIFO_DEPTH 64
 `endif

@@ -1,4 +1,4 @@
-// dma_reg_bitbash_test : walking-1/0 write+read on every RW register (dma_reg_bitbash_seq)
+// dma_reg_bitbash_test : 모든 RW 레지스터에 walking-1/0 쓰기+읽기 (dma_reg_bitbash_seq)
 class dma_reg_bitbash_test extends dma_base_test;
   `uvm_component_utils(dma_reg_bitbash_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

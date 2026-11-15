@@ -1,14 +1,14 @@
-// axi4_slv_cfg : per-channel backpressure and latency knobs of the slave
+// axi4_slv_cfg : slave의 채널별 backpressure와 지연 설정값
 class axi4_slv_cfg extends uvm_object;
   `uvm_object_utils(axi4_slv_cfg)
-  int unsigned ar_ready_pct  = 100;  // P(ARREADY=1) per cycle
+  int unsigned ar_ready_pct  = 100;  // 사이클마다 ARREADY=1일 확률(%)
   int unsigned aw_ready_pct  = 100;
-  int unsigned aw_fixed_wait = 0;    // >0: hold AWREADY low this many cycles after AWVALID
+  int unsigned aw_fixed_wait = 0;    // >0이면 AWVALID 후 이 사이클 수만큼 AWREADY를 0으로 유지
   int unsigned w_ready_pct   = 100;
-  int unsigned r_gap_pct     = 0;    // P(idle cycle before an R beat)
-  int unsigned max_r_latency = 0;    // cycles AR accept -> first R beat (uniform 0..max)
-  int unsigned max_b_latency = 0;    // cycles last W -> BVALID
-  int unsigned max_burst_len = 16;   // DUT spec: up to 16 beats
+  int unsigned r_gap_pct     = 0;    // R beat 앞에 빈 사이클을 넣을 확률(%)
+  int unsigned max_r_latency = 0;    // AR 수락 -> 첫 R beat까지의 사이클 (0..max 균등 분포)
+  int unsigned max_b_latency = 0;    // 마지막 W -> BVALID까지의 사이클
+  int unsigned max_burst_len = 16;   // DUT 사양: 최대 16 beat
 
   function new(string name = "axi4_slv_cfg");
     super.new(name);

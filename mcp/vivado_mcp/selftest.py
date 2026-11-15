@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-selftest.py - talk to vivado-mcp over real stdio MCP and exercise every tool.
+selftest.py - 실제 stdio MCP로 vivado-mcp에 접속해 모든 도구를 한 번씩 실행합니다.
 
-  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py          # quick (unit TB)
-  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py --full   # + top test + regression
+  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py          # 빠른 확인 (unit TB)
+  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py --full   # + top 테스트 + 회귀
 
-Exit 0 when every check passes.
+모든 확인을 통과하면 종료 코드 0.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def check(name: str, cond: bool, detail: object = "") -> None:
 
 
 def data(res) -> object:
-    """structured content if present, else the text content parsed as JSON"""
+    """structured content가 있으면 그것을, 없으면 text content를 JSON으로 파싱해 반환"""
     if getattr(res, "structured_content", None) is not None:
         sc = res.structured_content
         return sc.get("result", sc) if isinstance(sc, dict) and set(sc) == {"result"} else sc

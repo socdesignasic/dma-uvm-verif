@@ -1,8 +1,8 @@
 // -----------------------------------------------------------------------------
-// unit_test_pkg : tests shared by all unit TBs (tb_fifo / tb_skid / tb_adder)
-// The TB top publishes "dut_kind" (fifo|skid|adder) which selects the model.
+// unit_test_pkg : 모든 unit TB(tb_fifo / tb_skid / tb_adder)가 함께 쓰는 테스트
+// TB top이 "dut_kind"(fifo|skid|adder)를 알려 주고, 그 값으로 모델을 고름.
 //
-//   +N_ITEMS=<n>  overrides the number of beats for any test
+//   +N_ITEMS=<n>  모든 테스트의 beat 개수를 덮어씀
 // -----------------------------------------------------------------------------
 package unit_test_pkg;
   import uvm_pkg::*;

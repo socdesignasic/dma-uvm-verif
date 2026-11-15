@@ -1,8 +1,8 @@
-// unit_env_cfg : reference-model kind + in/out agent configs
+// unit_env_cfg : 기준 모델 종류 + 입력/출력 agent 설정
 class unit_env_cfg extends uvm_object;
   `uvm_object_utils(unit_env_cfg)
   model_e      model   = MODEL_PASS;
-  int unsigned lane_bw = 32;      // adder lane width (8 in dma_ip_top)
+  int unsigned lane_bw = 32;      // adder lane 폭 (dma_ip_top에서는 8)
   vr_cfg  in_cfg;
   vr_cfg  out_cfg;
 

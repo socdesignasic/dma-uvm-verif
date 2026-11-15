@@ -1,5 +1,5 @@
-# Out-of-context synth + place + route of dma_ip_top (RTL from HW/), for a fast timing
-# and utilization check without the block design.
+# dma_ip_top(HW/의 RTL)를 단독(out-of-context)으로 합성 + 배치 + 배선.
+# block design 없이 타이밍과 사용량을 빠르게 확인하는 용도.
 #   vivado -mode batch -source ci/vivado/ooc.tcl -tclargs <out_dir> <period_ns>
 set root   [file normalize [file join [file dirname [info script]] .. ..]]
 set out    [file normalize [lindex $argv 0]]
@@ -8,7 +8,7 @@ set part   xc7z020clg400-1
 file mkdir $out
 
 foreach f [lsort [glob -directory [file join $root HW] -types f */*.v */*/*.v]] { read_verilog $f }
-# clock constraint generated with the requested period (a clock's PERIOD is read-only later)
+# 요청한 주기로 클럭 제약을 생성 (클럭의 PERIOD는 나중에 바꿀 수 없음)
 set xdc [file join $out ooc_clock.xdc]
 set fh [open $xdc w]
 puts $fh "create_clock -name ap_clk -period $period \[get_ports ap_clk\]"

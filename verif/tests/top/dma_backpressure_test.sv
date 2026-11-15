@@ -1,4 +1,4 @@
-// dma_backpressure_test : 6 jobs of 64..400 beats under heavy AR/W/R/B backpressure and latency
+// dma_backpressure_test : 64..400 beat 작업 6개, AR/W/R/B를 심하게 막고 지연도 큼
 class dma_backpressure_test extends dma_base_test;
   `uvm_component_utils(dma_backpressure_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

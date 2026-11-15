@@ -1,6 +1,6 @@
-// axil_base_seq : base for register-level sequences on the AXI4-Lite agent.
+// axil_base_seq : AXI4-Lite agent에서 레지스터를 다루는 sequence의 기본 클래스
 //   write_reg(addr, data)  /  read_reg(addr, data)
-// A non-OKAY response is reported as UVM_ERROR.
+// 응답이 OKAY가 아니면 UVM_ERROR로 보고합니다.
 class axil_base_seq extends uvm_sequence #(axil_item);
   `uvm_object_utils(axil_base_seq)
 
@@ -24,7 +24,7 @@ class axil_base_seq extends uvm_sequence #(axil_item);
     start_item(t);
     t.write = 0;
     t.addr  = addr;
-    finish_item(t);           // the driver fills in data/resp before item_done
+    finish_item(t);           // item_done 전에 driver가 data/resp를 채움
     data = t.data;
     if (t.resp != 2'b00)
       `uvm_error("AXIL_RESP", $sformatf("read 0x%03h: resp=%0d", addr, t.resp))

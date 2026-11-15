@@ -1,4 +1,4 @@
-// unit_env : in/out vr agents + scoreboard + coverage
+// unit_env : 입력/출력 vr agent + scoreboard + coverage
 class unit_env extends uvm_env;
   `uvm_component_utils(unit_env)
   unit_env_cfg    cfg;

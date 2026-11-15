@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-check_jenkins_mcp.py - connect to the Jenkins MCP server (mcp-server plugin) and list its
-tools, then read the dma-uvm job's last build through MCP.
+check_jenkins_mcp.py - Jenkins MCP 서버(mcp-server 플러그인)에 접속해 도구 목록을 보여 주고,
+MCP로 dma-uvm 잡의 마지막 빌드를 읽습니다.
 
   mcp/.venv/Scripts/python.exe mcp/check_jenkins_mcp.py
 
-Credentials: user 'admin' + the API token in
-%USERPROFILE%\\jenkins\\home\\secrets\\claude_mcp_api_token (created for Claude Code; never in git).
+인증: 사용자 'admin' + 다음 파일의 API 토큰
+%USERPROFILE%\\jenkins\\home\\secrets\\claude_mcp_api_token (Claude Code용으로 만든 것. git에는 절대 넣지 않음).
 """
 from __future__ import annotations
 

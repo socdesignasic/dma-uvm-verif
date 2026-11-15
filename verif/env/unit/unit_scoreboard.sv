@@ -1,4 +1,4 @@
-// unit_scoreboard : in-order compare of output beats against model(input beats)
+// unit_scoreboard : 출력 beat를 모델(입력 beat)과 순서대로 비교
 `uvm_analysis_imp_decl(_in)
 `uvm_analysis_imp_decl(_out)
 

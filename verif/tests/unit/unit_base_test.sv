@@ -1,11 +1,11 @@
-// unit_base_test : common flow (start vr_stream_seq, drain, timeout); tests override configure()
+// unit_base_test : 공통 흐름 (vr_stream_seq 시작, 배출 대기, 타임아웃). 테스트는 configure()를 override
 class unit_base_test extends uvm_test;
   `uvm_component_utils(unit_base_test)
   unit_env     env;
   unit_env_cfg cfg;
   string       kind;
 
-  // stimulus knobs (set in configure())
+  // 자극 설정값 (configure()에서 설정)
   int unsigned n_items        = 200;
   int unsigned max_delay      = 0;
   int unsigned zero_delay_pct = 100;
@@ -15,7 +15,7 @@ class unit_base_test extends uvm_test;
     super.new(name, parent);
   endfunction
 
-  // override in derived tests: stimulus knobs + cfg.out_cfg backpressure
+  // 파생 테스트에서 override: 자극 설정값 + cfg.out_cfg backpressure
   virtual function void configure();
   endfunction
 
@@ -26,8 +26,8 @@ class unit_base_test extends uvm_test;
       `uvm_fatal("NO_KIND", "TB top must set dut_kind")
     cfg.model = (kind == "adder") ? MODEL_ADD : MODEL_PASS;
     void'(uvm_config_db#(int unsigned)::get(this, "", "lane_bw", cfg.lane_bw));
-    // Regular tests start a few cycles after reset; the first-cycle-after-reset
-    // corner is covered separately by unit_post_reset_test (see BUG-001).
+    // 일반 테스트는 리셋 후 몇 사이클 뒤에 시작함. 리셋 직후 첫 사이클
+    // 경계 상황은 unit_post_reset_test가 따로 다룸 (BUG-001 참고).
     cfg.in_cfg.post_reset_idle = 3;
     configure();
     if ($value$plusargs("N_ITEMS=%d", n_items)) `uvm_info("TEST", "N_ITEMS overridden by plusarg", UVM_LOW)
@@ -53,7 +53,7 @@ class unit_base_test extends uvm_test;
 
     seq.start(env.in_agt.sqr);
 
-    // drain: wait for every beat to come out, bounded by a generous budget
+    // 배출 대기: 모든 beat가 나올 때까지 기다림. 넉넉한 시간 제한 있음
     budget_ns = 2000 + 10 * longint'(n_items) * (max_delay + 2 + cfg.out_cfg.max_stall) * 4;
     fork
       while (env.sb.n_out < n_items) #10ns;
@@ -64,7 +64,7 @@ class unit_base_test extends uvm_test;
       end
     join_any
     disable fork;
-    #200ns;   // let any spurious extra beat show up in the scoreboard
+    #200ns;   // 엉뚱한 beat가 더 나오면 scoreboard에 잡히도록 잠시 기다림
     phase.drop_objection(this);
   endtask
 endclass

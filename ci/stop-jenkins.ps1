@@ -1,5 +1,5 @@
-<#
-  stop-jenkins.ps1 - stop the local Jenkins started by ci\start-jenkins.ps1
+﻿<#
+  stop-jenkins.ps1 - ci\start-jenkins.ps1로 시작한 로컬 Jenkins를 멈춥니다
 #>
 param([string]$JenkinsDir = "$env:USERPROFILE\jenkins")
 $pidFile = Join-Path $JenkinsDir "home\jenkins.pid"

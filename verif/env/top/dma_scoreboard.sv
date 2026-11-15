@@ -1,12 +1,12 @@
-// dma_scoreboard : per-job check of memory contents and bus traffic
-//   start_job() clears the burst list, check_job() runs after ap_done
+// dma_scoreboard : 작업마다 메모리 내용과 버스 트래픽을 검사
+//   start_job()이 burst 목록을 비우고, check_job()은 ap_done 뒤에 실행
 class dma_scoreboard extends uvm_scoreboard;
   `uvm_component_utils(dma_scoreboard)
   uvm_analysis_imp #(axi4_burst, dma_scoreboard) burst_imp;
   axi4_mem     mem;
-  axi4_burst   bursts[$];        // AR+AW seen during the current job
+  axi4_burst   bursts[$];        // 현재 작업 중에 본 AR+AW
   int unsigned n_jobs, n_jobs_fail;
-  bit          expect_jobs = 1;  // register-only tests clear this
+  bit          expect_jobs = 1;  // 레지스터만 보는 테스트는 0으로 둠
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
@@ -25,12 +25,12 @@ class dma_scoreboard extends uvm_scoreboard;
     return s + value[LANE_BW-1:0];
   endfunction
 
-  // src_snapshot: source bytes captured before start (DUT must not touch them)
+  // src_snapshot: 시작 전에 저장한 원본 바이트 (DUT가 건드리면 안 됨)
   function void check_job(dma_job j, bit [7:0] src_snapshot[], bit [7:0] guard_val);
     int unsigned errs, rd_beats, wr_beats;
     bit [7:0] exp, act;
 
-    // 1. data: every destination byte
+    // 1. 데이터: 대상의 모든 바이트
     for (int unsigned i = 0; i < j.bytes; i++) begin
       exp = model_byte(src_snapshot[i], j.value);
       act = mem.rd8(j.dst + i);
@@ -42,7 +42,7 @@ class dma_scoreboard extends uvm_scoreboard;
         errs++;
       end
     end
-    // 2. no overrun/underrun around dst, source untouched
+    // 2. dst 앞뒤 넘침/모자람 없음, 원본은 그대로
     for (int unsigned g = 1; g <= GUARD; g++) begin
       if (mem.rd8(j.dst - g) !== guard_val || mem.rd8(j.dst + j.bytes - 1 + g) !== guard_val) begin
         `uvm_error("SB_OVERRUN", $sformatf("%s: write outside dst (guard byte %0d changed)",
@@ -57,7 +57,7 @@ class dma_scoreboard extends uvm_scoreboard;
         errs++;
         break;
       end
-    // 3. bus traffic: every burst inside its window, beat totals exact
+    // 3. 버스 트래픽: 모든 burst가 자기 범위 안에 있고, beat 합계가 정확히 맞음
     foreach (bursts[k]) begin
       axi4_burst b = bursts[k];
       bit [31:0] lo = b.is_write ? j.dst : j.src;

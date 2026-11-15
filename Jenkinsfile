@@ -1,16 +1,15 @@
 // -----------------------------------------------------------------------------
-// dma-uvm CI : UVM regression of dma_ip on Vivado 2022.2 XSim
+// dma-uvm CI : Vivado 2022.2 XSim에서 dma_ip UVM 회귀
 //
-//   push to main (SCM poll) : smoke = all unit tests + top smoke subset, 1 seed
-//                             + FPGA out-of-context synth/P&R timing check (100 MHz)
-//   nightly timer (02:00)   : full  = every test of every TB, 5 seeds, coverage report
-//                             + FPGA system build: bitstream + XSA (the CD artifacts)
-//   manual "Build with Parameters" can force either, override the seeds, or request a bitstream.
+//   main에 push (SCM poll) : smoke = unit 테스트 전부 + top smoke 묶음, seed 1개
+//                            + FPGA 단독(out-of-context) 합성/배치배선 타이밍 확인 (100 MHz)
+//   매일 타이머 (02:00)    : full  = 모든 TB의 모든 테스트, seed 5개, 커버리지 보고서
+//                            + FPGA 시스템 빌드: 비트스트림 + XSA (CD 결과물)
+//   수동 "Build with Parameters"로 둘 중 하나를 강제하거나, seed 수를 바꾸거나, 비트스트림을 요청할 수 있음.
 //
-// Agent: label 'vivado' (the local PC). PYTHON / XILINX_VIVADO / REGRESS_JOBS come
-// from the node environment (ci/jenkins.yaml). Every step calls the same scripts a
-// developer runs by hand, so a CI failure reproduces locally with the printed
-// `rerun` command.
+// Agent: label 'vivado' (이 PC). PYTHON / XILINX_VIVADO / REGRESS_JOBS는 노드 환경
+// (ci/jenkins.yaml)에서 옴. 모든 단계는 개발자가 손으로 돌리는 것과 같은 스크립트를
+// 부르므로, CI 실패는 출력된 `rerun` 명령으로 로컬에서 재현됨.
 // -----------------------------------------------------------------------------
 def TOP_SMOKE = 'dma_reg_reset_test dma_reg_bitbash_test dma_smoke_test dma_small_test dma_irq_test dma_aw_backpressure_test'
 def COV_TBS   = ['top', 'adder8', 'adder', 'fifo', 'fifo_d4', 'skid']
@@ -27,9 +26,9 @@ pipeline {
 
   parameters {
     choice(name: 'MODE', choices: ['auto', 'smoke', 'full'],
-           description: 'auto: smoke on SCM change, full on the nightly timer')
-    string(name: 'SEEDS', defaultValue: '', description: 'seeds per test (empty: smoke=1, full=5)')
-    booleanParam(name: 'BITSTREAM', defaultValue: false, description: 'also build bitstream + XSA (always on in full mode)')
+           description: 'auto: 코드가 바뀌면 smoke, 매일 타이머면 full')
+    string(name: 'SEEDS', defaultValue: '', description: '테스트당 seed 수 (비우면 smoke=1, full=5)')
+    booleanParam(name: 'BITSTREAM', defaultValue: false, description: '비트스트림 + XSA도 빌드 (full 모드에서는 항상 켜짐)')
   }
 
   stages {
@@ -57,7 +56,7 @@ pipeline {
 
     stage('Unit regression') {
       steps {
-        // a failing regression marks the stage/build but later stages still run
+        // 회귀가 실패하면 stage/빌드에 표시하지만 이후 stage는 계속 실행
         catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
           bat '"%PYTHON%" scripts/regress.py --suite unit --seeds %N_SEEDS% --jobs %JOBS% --name unit'
         }
@@ -111,7 +110,7 @@ pipeline {
       junit testResults: 'out/regress/*/junit.xml', allowEmptyResults: true
       archiveArtifacts allowEmptyArchive: true, fingerprint: false,
         artifacts: 'out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'
-      // CD artifacts: fingerprinted so a board image can be traced back to its build and commit
+      // CD 결과물: fingerprint를 남겨 보드 이미지가 어느 빌드와 커밋에서 나왔는지 추적 가능
       archiveArtifacts allowEmptyArchive: true, fingerprint: true,
         artifacts: 'out/fpga/system/design_1_wrapper.bit, out/fpga/system/design_1_wrapper.xsa'
       script {

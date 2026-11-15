@@ -1,9 +1,9 @@
-// dma_coverage : job-level (size, value, mode, 4KB) and burst-level functional coverage
+// dma_coverage : 작업 단위(크기, 값, 모드, 4KB)와 burst 단위 기능 커버리지
 class dma_coverage extends uvm_component;
   `uvm_component_utils(dma_coverage)
   uvm_analysis_imp #(axi4_burst, dma_coverage) burst_imp;
 
-  // sampled values
+  // 샘플링할 값
   int unsigned beats, blen;
   bit [7:0]    v8;
   bit          upper_set, src_x4k, dst_x4k, is_wr, at_4k_end;
@@ -13,12 +13,12 @@ class dma_coverage extends uvm_component;
     option.per_instance = 1;
     cp_beats : coverpoint beats { bins one = {1}; bins few = {[2:15]}; bins max_burst = {16};
                                   bins multi = {[17:511]}; bins page = {512};
-                                  // explicit bound: XSim 2022.2 mis-evaluates `$` here and
-                                  // counted EVERY job as huge (see CLAUDE.md pitfalls)
+                                  // 상한을 명시: XSim 2022.2가 여기서 `$`를 잘못 계산해
+                                  // 모든 작업을 huge로 셌음 (CLAUDE.md의 주의사항 참고)
                                   bins huge = {[513:32'h1FFF_FFFF]}; }
     cp_value : coverpoint v8    { bins zero = {0}; bins one = {1}; bins max = {255};
                                   bins other = {[2:254]}; }
-    cp_upper : coverpoint upper_set;   // value_to_add[31:8] != 0 must be ignored
+    cp_upper : coverpoint upper_set;   // value_to_add[31:8] != 0 은 무시돼야 함
     cp_mode  : coverpoint mode;
     cp_src4k : coverpoint src_x4k;
     cp_dst4k : coverpoint dst_x4k;
@@ -47,7 +47,7 @@ class dma_coverage extends uvm_component;
     cg_job.sample();
   endfunction
 
-  // a short burst ending exactly on a 4KB page = the DUT's 4KB split logic fired
+  // 4KB 페이지 끝에 딱 맞춰 끝나는 짧은 burst = DUT의 4KB 분할 로직이 동작함
   function void write(axi4_burst b);
     bit [31:0] e = b.end_addr();
     is_wr = b.is_write; blen = b.beats();

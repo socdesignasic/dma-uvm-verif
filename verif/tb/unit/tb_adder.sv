@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
-// axis_adder, 64-bit data. ctrl_constant is driven per beat from in_if.side.
-//   default        : 2 x 32-bit lanes (module default)
-//   +define+ADDER_BW=8 : 8 x 8-bit lanes, as instantiated in dma_ip_top
+// axis_adder, 데이터 64비트. ctrl_constant는 beat마다 in_if.side로 구동.
+//   기본값         : 32비트 lane 2개 (모듈 기본값)
+//   +define+ADDER_BW=8 : 8비트 lane 8개, dma_ip_top과 같은 설정
 `ifndef ADDER_BW
   `define ADDER_BW 32
 `endif

@@ -1,4 +1,4 @@
-// dma_large_test : one 64KB job (8192 beats), moderate backpressure
+// dma_large_test : 64KB(8192 beat) 작업 하나, 중간 정도 backpressure
 class dma_large_test extends dma_base_test;
   `uvm_component_utils(dma_large_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

@@ -1,5 +1,5 @@
-// dma_reg_reset_seq : reads every register right after reset and compares all 32 bits
-// with the reset value (AP_CTRL: only ap_idle=1; everything else 0; unused bits read 0).
+// dma_reg_reset_seq : 리셋 직후 모든 레지스터를 읽어 32비트 전체를 리셋 값과 비교
+// (AP_CTRL은 ap_idle=1만, 나머지는 모두 0, 사용하지 않는 비트는 0).
 class dma_reg_reset_seq extends axil_base_seq;
   `uvm_object_utils(dma_reg_reset_seq)
 

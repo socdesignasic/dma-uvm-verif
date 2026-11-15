@@ -1,4 +1,4 @@
-// dma_job : one DMA run (source, destination, size, value to add, completion mode)
+// dma_job : DMA 실행 한 번 (원본, 대상, 크기, 더할 값, 완료 방식)
 class dma_job extends uvm_object;
   `uvm_object_utils(dma_job)
   bit [31:0]  src, dst, bytes, value;

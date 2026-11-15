@@ -1,4 +1,4 @@
-// vr_monitor : publishes one vr_item per valid&&ready handshake
+// vr_monitor : valid&&ready handshake마다 vr_item 하나를 내보냄
 class vr_monitor extends uvm_monitor;
   `uvm_component_utils(vr_monitor)
   vr_vif vif;

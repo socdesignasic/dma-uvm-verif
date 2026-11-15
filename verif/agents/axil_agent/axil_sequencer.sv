@@ -1,4 +1,4 @@
-// axil_sequencer : sequencer of axil_item
+// axil_sequencer : axil_item의 sequencer
 class axil_sequencer extends uvm_sequencer #(axil_item);
   `uvm_component_utils(axil_sequencer)
   function new(string name, uvm_component parent);

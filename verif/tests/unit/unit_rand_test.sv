@@ -1,4 +1,4 @@
-// unit_rand_test : random gaps in, random backpressure out, per-beat random side
+// unit_rand_test : 입력은 랜덤 간격, 출력은 랜덤 backpressure, beat마다 side도 랜덤
 class unit_rand_test extends unit_base_test;
   `uvm_component_utils(unit_rand_test)
   function new(string name, uvm_component parent); super.new(name, parent); endfunction

@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
-// dma_test_pkg : top-level tests for dma_ip_top (one class per file, included below)
-//   +N_JOBS=<n>   overrides the number of DMA jobs for job-based tests
+// dma_test_pkg : dma_ip_top용 top 레벨 테스트 (파일 하나에 클래스 하나, 아래에서 include)
+//   +N_JOBS=<n>   작업 기반 테스트의 DMA 작업 개수를 덮어씀
 // -----------------------------------------------------------------------------
 package dma_test_pkg;
   import uvm_pkg::*;
@@ -10,10 +10,10 @@ package dma_test_pkg;
   import dma_seq_pkg::*;
 
   `include "dma_base_test.sv"
-  // registers
+  // 레지스터
   `include "dma_reg_reset_test.sv"
   `include "dma_reg_bitbash_test.sv"
-  // DMA jobs
+  // DMA 작업
   `include "dma_smoke_test.sv"
   `include "dma_small_test.sv"
   `include "dma_rand_test.sv"

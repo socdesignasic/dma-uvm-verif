@@ -1,4 +1,4 @@
-# Jenkins plugins for dma-uvm CI (installed by ci/start-jenkins.ps1)
+# dma-uvm CI용 Jenkins 플러그인 (ci/start-jenkins.ps1이 설치)
 configuration-as-code
 job-dsl
 workflow-aggregator
@@ -6,5 +6,5 @@ git
 junit
 htmlpublisher
 timestamper
-# P4: Jenkins as an MCP server (endpoint /mcp-server/mcp)
+# P4: Jenkins를 MCP 서버로 사용 (endpoint /mcp-server/mcp)
 mcp-server

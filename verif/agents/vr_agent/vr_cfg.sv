@@ -1,13 +1,13 @@
-// vr_cfg : agent mode + stimulus/backpressure knobs
+// vr_cfg : agent 모드 + 자극/backpressure 설정값
 class vr_cfg extends uvm_object;
   vr_mode_e    mode      = VR_MASTER;
-  // master knob: idle cycles after reset before the first beat may be driven
-  // (0 = drive valid on the very first cycle out of reset, legal per AXI-Stream)
+  // master 설정: 리셋 후 첫 beat를 구동하기 전까지 쉬는 사이클
+  // (0 = 리셋이 풀리는 첫 사이클부터 valid 구동. AXI-Stream 규격상 허용)
   int unsigned post_reset_idle = 0;
-  // slave backpressure knobs
-  int unsigned ready_pct = 100;  // P(ready=1) per cycle
-  int unsigned stall_pct = 0;    // P(start a long stall) per cycle
-  int unsigned max_stall = 0;    // long stall length upper bound (cycles)
+  // slave backpressure 설정
+  int unsigned ready_pct = 100;  // 사이클마다 ready=1일 확률(%)
+  int unsigned stall_pct = 0;    // 사이클마다 긴 stall을 시작할 확률(%)
+  int unsigned max_stall = 0;    // 긴 stall 길이의 상한 (사이클)
 
   `uvm_object_utils(vr_cfg)
   function new(string name = "vr_cfg");

@@ -1,4 +1,4 @@
-// axil_item : one AXI4-Lite read or write (data/resp filled in by the driver on reads)
+// axil_item : AXI4-Lite 읽기 또는 쓰기 하나 (읽기는 driver가 data/resp를 채움)
 class axil_item extends uvm_sequence_item;
   rand bit        write;
   rand bit [11:0] addr;

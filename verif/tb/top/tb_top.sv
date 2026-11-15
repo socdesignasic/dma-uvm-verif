@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // -----------------------------------------------------------------------------
-// tb_top : dma_ip_top (default adder datapath) + AXI-Lite master + AXI4 slave
+// tb_top : dma_ip_top (기본 adder datapath) + AXI-Lite master + AXI4 slave
 // -----------------------------------------------------------------------------
 module tb_top;
   import uvm_pkg::*;
@@ -20,7 +20,7 @@ module tb_top;
   dma_ip_top dut (
     .ap_clk                (clk),
     .ap_rst_n              (rst_n),
-    // m00 AXI4 master -> TB memory
+    // m00 AXI4 master -> TB 메모리
     .m00_axi_awvalid       (mem.awvalid), .m00_axi_awready (mem.awready),
     .m00_axi_awaddr        (mem.awaddr),  .m00_axi_awid    (mem.awid),
     .m00_axi_awlen         (mem.awlen),   .m00_axi_awsize  (mem.awsize),
@@ -46,7 +46,7 @@ module tb_top;
     .m00_axi_bvalid        (mem.bvalid),  .m00_axi_bready  (mem.bready),
     .m00_axi_bresp         (mem.bresp),   .m00_axi_bid     (mem.bid),
     .m00_axi_buser         (1'b0),
-    // AXI4-Lite control
+    // AXI4-Lite 제어
     .s_axi_control_awvalid (ctl.awvalid), .s_axi_control_awready (ctl.awready),
     .s_axi_control_awaddr  (ctl.awaddr),
     .s_axi_control_wvalid  (ctl.wvalid),  .s_axi_control_wready  (ctl.wready),
