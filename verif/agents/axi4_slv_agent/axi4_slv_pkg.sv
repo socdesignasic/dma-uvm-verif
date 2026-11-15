@@ -9,16 +9,16 @@
 //                      검사: WLAST가 정확히 마지막 beat에 오는지, 초기화 안 된 메모리를 읽는지
 //   axi4_slv_agent   : 설정 + 공유 axi4_mem + driver + monitor
 // -----------------------------------------------------------------------------
-package axi4_slv_pkg;
-  import uvm_pkg::*;
-  `include "uvm_macros.svh"
+package axi4_slv_pkg;                               // 패키지 시작
+  import uvm_pkg::*;                                // UVM 라이브러리 import
+  `include "uvm_macros.svh"                         // UVM 매크로 포함
 
-  typedef virtual axi4_if axi4_vif;
+  typedef virtual axi4_if axi4_vif;                 // virtual interface 타입 별칭
 
-  `include "axi4_slv_cfg.sv"
-  `include "axi4_mem.sv"
-  `include "axi4_burst.sv"
-  `include "axi4_slv_monitor.sv"
-  `include "axi4_slv_driver.sv"
-  `include "axi4_slv_agent.sv"
-endpackage
+  `include "axi4_slv_cfg.sv"                        // 설정 클래스
+  `include "axi4_mem.sv"                            // 메모리 모델
+  `include "axi4_burst.sv"                          // burst 객체
+  `include "axi4_slv_monitor.sv"                    // monitor
+  `include "axi4_slv_driver.sv"                     // driver
+  `include "axi4_slv_agent.sv"                      // agent
+endpackage                                          // 패키지 끝

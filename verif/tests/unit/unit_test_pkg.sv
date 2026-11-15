@@ -4,17 +4,17 @@
 //
 //   +N_ITEMS=<n>  모든 테스트의 beat 개수를 덮어씀
 // -----------------------------------------------------------------------------
-package unit_test_pkg;
-  import uvm_pkg::*;
-  `include "uvm_macros.svh"
-  import vr_pkg::*;
-  import unit_env_pkg::*;
+package unit_test_pkg;                              // 패키지 시작
+  import uvm_pkg::*;                                // UVM 라이브러리 import
+  `include "uvm_macros.svh"                         // UVM 매크로 포함
+  import vr_pkg::*;                                 // valid/ready agent 패키지 import
+  import unit_env_pkg::*;                           // unit env 패키지 import
 
-  `include "unit_base_test.sv"
-  `include "unit_smoke_test.sv"
-  `include "unit_post_reset_test.sv"
-  `include "unit_rand_test.sv"
-  `include "unit_backpressure_test.sv"
-  `include "unit_trickle_test.sv"
-  `include "unit_fixed_side_test.sv"
-endpackage
+  `include "unit_base_test.sv"                      // 기본 테스트
+  `include "unit_smoke_test.sv"                     // smoke 테스트
+  `include "unit_post_reset_test.sv"                // 리셋 직후 테스트 (BUG-001)
+  `include "unit_rand_test.sv"                      // 랜덤 테스트
+  `include "unit_backpressure_test.sv"              // backpressure 테스트
+  `include "unit_trickle_test.sv"                   // 띄엄띄엄 입력 테스트
+  `include "unit_fixed_side_test.sv"                // side 고정 테스트
+endpackage                                          // 패키지 끝
