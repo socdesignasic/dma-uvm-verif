@@ -11,115 +11,115 @@
 // (ci/jenkins.yaml)에서 옴. 모든 단계는 개발자가 손으로 돌리는 것과 같은 스크립트를
 // 부르므로, CI 실패는 출력된 `rerun` 명령으로 로컬에서 재현됨.
 // -----------------------------------------------------------------------------
-def TOP_SMOKE = 'dma_reg_reset_test dma_reg_bitbash_test dma_smoke_test dma_small_test dma_irq_test dma_aw_backpressure_test'
-def COV_TBS   = ['top', 'adder8', 'adder', 'fifo', 'fifo_d4', 'skid']
+def TOP_SMOKE = 'dma_reg_reset_test dma_reg_bitbash_test dma_smoke_test dma_small_test dma_irq_test dma_aw_backpressure_test'  // smoke 모드에서 돌릴 top 테스트
+def COV_TBS   = ['top', 'adder8', 'adder', 'fifo', 'fifo_d4', 'skid']  // full 모드에서 커버리지 보고서를 만들 TB
 
-pipeline {
-  agent { label 'vivado' }
+pipeline {                                                  // declarative pipeline 시작
+  agent { label 'vivado' }                                  // vivado label이 붙은 노드에서 실행
 
-  options {
-    timestamps()
-    timeout(time: 4, unit: 'HOURS')
-    buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
-    disableConcurrentBuilds()
-  }
+  options {                                                 // 빌드 옵션
+    timestamps()                                            // 콘솔 로그에 시각 표시
+    timeout(time: 4, unit: 'HOURS')                         // 빌드 전체 시간 제한 4시간
+    buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))  // 빌드 30개, 결과물 10개만 보관
+    disableConcurrentBuilds()                               // 동시에 한 빌드만
+  }                                                         // options 끝
 
-  parameters {
-    choice(name: 'MODE', choices: ['auto', 'smoke', 'full'],
-           description: 'auto: 코드가 바뀌면 smoke, 매일 타이머면 full')
-    string(name: 'SEEDS', defaultValue: '', description: '테스트당 seed 수 (비우면 smoke=1, full=5)')
-    booleanParam(name: 'BITSTREAM', defaultValue: false, description: '비트스트림 + XSA도 빌드 (full 모드에서는 항상 켜짐)')
-  }
+  parameters {                                              // 빌드 파라미터
+    choice(name: 'MODE', choices: ['auto', 'smoke', 'full'],  // 실행 모드 선택
+           description: 'auto: 코드가 바뀌면 smoke, 매일 타이머면 full')  // 설명
+    string(name: 'SEEDS', defaultValue: '', description: '테스트당 seed 수 (비우면 smoke=1, full=5)')  // seed 수
+    booleanParam(name: 'BITSTREAM', defaultValue: false, description: '비트스트림 + XSA도 빌드 (full 모드에서는 항상 켜짐)')  // 비트스트림 빌드 여부
+  }                                                         // parameters 끝
 
-  stages {
-    stage('Plan') {
-      steps {
-        script {
-          def nightly = !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()
-          env.RUN_MODE = (params.MODE == 'auto') ? (nightly ? 'full' : 'smoke') : params.MODE
-          env.N_SEEDS  = params.SEEDS?.trim() ? params.SEEDS.trim() : (env.RUN_MODE == 'full' ? '5' : '1')
-          env.JOBS     = env.REGRESS_JOBS ?: '4'
-          env.DO_BITSTREAM = (env.RUN_MODE == 'full' || params.BITSTREAM) ? 'true' : 'false'
-          currentBuild.description = "${env.RUN_MODE}, ${env.N_SEEDS} seed(s)" + (env.DO_BITSTREAM == 'true' ? ', bitstream' : '')
-        }
-        bat 'if exist out rmdir /s /q out'
-        bat '"%PYTHON%" --version && "%PYTHON%" scripts/sim.py list'
-      }
-    }
+  stages {                                                  // stage 목록
+    stage('Plan') {                                         // 실행 계획 정하기
+      steps {                                               // steps 시작
+        script {                                            // Groovy 코드 블록
+          def nightly = !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()  // 타이머로 시작한 빌드인지
+          env.RUN_MODE = (params.MODE == 'auto') ? (nightly ? 'full' : 'smoke') : params.MODE  // auto면 타이머는 full, 그 밖은 smoke
+          env.N_SEEDS  = params.SEEDS?.trim() ? params.SEEDS.trim() : (env.RUN_MODE == 'full' ? '5' : '1')  // seed 수 (지정 없으면 full 5, smoke 1)
+          env.JOBS     = env.REGRESS_JOBS ?: '4'            // 병렬 실행 수 (노드 환경, 기본 4)
+          env.DO_BITSTREAM = (env.RUN_MODE == 'full' || params.BITSTREAM) ? 'true' : 'false'  // full이거나 요청했으면 비트스트림 빌드
+          currentBuild.description = "${env.RUN_MODE}, ${env.N_SEEDS} seed(s)" + (env.DO_BITSTREAM == 'true' ? ', bitstream' : '')  // 빌드 설명에 모드와 seed 수 표시
+        }                                                   // script 끝
+        bat 'if exist out rmdir /s /q out'                  // 이전 결과 삭제
+        bat '"%PYTHON%" --version && "%PYTHON%" scripts/sim.py list'  // Python 버전과 TB 목록 출력
+      }                                                     // steps 끝
+    }                                                       // stage 끝
 
-    stage('Lint') {
-      steps {
-        bat '"%PYTHON%" scripts/sim.py lint --tb rtl'
-        bat '"%PYTHON%" scripts/sim.py lint --tb top'
-      }
-    }
+    stage('Lint') {                                         // 컴파일 확인
+      steps {                                               // steps 시작
+        bat '"%PYTHON%" scripts/sim.py lint --tb rtl'       // RTL만 컴파일
+        bat '"%PYTHON%" scripts/sim.py lint --tb top'       // top TB 컴파일
+      }                                                     // steps 끝
+    }                                                       // stage 끝
 
-    stage('Unit regression') {
-      steps {
+    stage('Unit regression') {                              // unit 회귀
+      steps {                                               // steps 시작
         // 회귀가 실패하면 stage/빌드에 표시하지만 이후 stage는 계속 실행
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          bat '"%PYTHON%" scripts/regress.py --suite unit --seeds %N_SEEDS% --jobs %JOBS% --name unit'
-        }
-      }
-    }
+        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {  // 실패해도 다음 stage 계속
+          bat '"%PYTHON%" scripts/regress.py --suite unit --seeds %N_SEEDS% --jobs %JOBS% --name unit'  // unit 회귀 실행
+        }                                                   // catchError 끝
+      }                                                     // steps 끝
+    }                                                       // stage 끝
 
-    stage('Top regression') {
-      steps {
-        script {
-          def subset = (env.RUN_MODE == 'smoke') ? "--tests ${TOP_SMOKE}" : ''
-          catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-            bat "\"%PYTHON%\" scripts/regress.py --suite top --seeds %N_SEEDS% --jobs %JOBS% --name top ${subset}"
-          }
-        }
-      }
-    }
+    stage('Top regression') {                               // top 회귀
+      steps {                                               // steps 시작
+        script {                                            // Groovy 코드 블록
+          def subset = (env.RUN_MODE == 'smoke') ? "--tests ${TOP_SMOKE}" : ''  // smoke면 정해진 테스트만
+          catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {  // 실패해도 다음 stage 계속
+            bat "\"%PYTHON%\" scripts/regress.py --suite top --seeds %N_SEEDS% --jobs %JOBS% --name top ${subset}"  // top 회귀 실행
+          }                                                 // catchError 끝
+        }                                                   // script 끝
+      }                                                     // steps 끝
+    }                                                       // stage 끝
 
-    stage('FPGA timing (OOC)') {
-      steps {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          bat '"%PYTHON%" scripts/fpga.py ooc'
-        }
-      }
-    }
+    stage('FPGA timing (OOC)') {                            // FPGA 단독 타이밍 확인
+      steps {                                               // steps 시작
+        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {  // 실패해도 다음 stage 계속
+          bat '"%PYTHON%" scripts/fpga.py ooc'              // ooc 합성/배치/배선
+        }                                                   // catchError 끝
+      }                                                     // steps 끝
+    }                                                       // stage 끝
 
-    stage('FPGA bitstream') {
-      when { environment name: 'DO_BITSTREAM', value: 'true' }
-      steps {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          bat '"%PYTHON%" scripts/fpga.py system --jobs %JOBS%'
-        }
-      }
-    }
+    stage('FPGA bitstream') {                               // 비트스트림 빌드
+      when { environment name: 'DO_BITSTREAM', value: 'true' }  // DO_BITSTREAM이 true일 때만
+      steps {                                               // steps 시작
+        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {  // 실패해도 다음 stage 계속
+          bat '"%PYTHON%" scripts/fpga.py system --jobs %JOBS%'  // 시스템 빌드 (비트스트림 + XSA)
+        }                                                   // catchError 끝
+      }                                                     // steps 끝
+    }                                                       // stage 끝
 
-    stage('Coverage') {
-      when { environment name: 'RUN_MODE', value: 'full' }
-      steps {
-        script {
-          COV_TBS.each { tb ->
-            catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-              bat "\"%PYTHON%\" scripts/sim.py cov-report --tb ${tb}"
-            }
-          }
-        }
-      }
-    }
-  }
+    stage('Coverage') {                                     // 커버리지 보고서
+      when { environment name: 'RUN_MODE', value: 'full' }  // full 모드일 때만
+      steps {                                               // steps 시작
+        script {                                            // Groovy 코드 블록
+          COV_TBS.each { tb ->                              // TB마다
+            catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {  // 실패하면 UNSTABLE로 표시
+              bat "\"%PYTHON%\" scripts/sim.py cov-report --tb ${tb}"  // 커버리지 보고서 생성
+            }                                               // catchError 끝
+          }                                                 // each 끝
+        }                                                   // script 끝
+      }                                                     // steps 끝
+    }                                                       // stage 끝
+  }                                                         // stages 끝
 
-  post {
-    always {
-      junit testResults: 'out/regress/*/junit.xml', allowEmptyResults: true
-      archiveArtifacts allowEmptyArchive: true, fingerprint: false,
-        artifacts: 'out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'
+  post {                                                    // 빌드가 끝난 뒤
+    always {                                                // 결과와 상관없이 항상
+      junit testResults: 'out/regress/*/junit.xml', allowEmptyResults: true  // JUnit 결과 수집 (Test Result 화면)
+      archiveArtifacts allowEmptyArchive: true, fingerprint: false,  // 결과물 보관 (fingerprint 없음)
+        artifacts: 'out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'  // 회귀 요약, 실행 로그, 빌드 로그, FPGA 보고서
       // CD 결과물: fingerprint를 남겨 보드 이미지가 어느 빌드와 커밋에서 나왔는지 추적 가능
-      archiveArtifacts allowEmptyArchive: true, fingerprint: true,
-        artifacts: 'out/fpga/system/design_1_wrapper.bit, out/fpga/system/design_1_wrapper.xsa'
-      script {
-        COV_TBS.each { tb ->
-          publishHTML(target: [reportName: "Coverage ${tb}", reportDir: "out/${tb}/cov/func",
-                               reportFiles: 'dashboard.html', allowMissing: true,
-                               alwaysLinkToLastBuild: true, keepAll: true])
-        }
-      }
-    }
-  }
-}
+      archiveArtifacts allowEmptyArchive: true, fingerprint: true,  // 비트스트림과 XSA 보관 (fingerprint 남김)
+        artifacts: 'out/fpga/system/design_1_wrapper.bit, out/fpga/system/design_1_wrapper.xsa'  // 보관할 파일
+      script {                                              // Groovy 코드 블록
+        COV_TBS.each { tb ->                                // TB마다
+          publishHTML(target: [reportName: "Coverage ${tb}", reportDir: "out/${tb}/cov/func",  // 커버리지 HTML 보고서 게시
+                               reportFiles: 'dashboard.html', allowMissing: true,  // 보고서 파일, 없어도 허용
+                               alwaysLinkToLastBuild: true, keepAll: true])  // 마지막 빌드 링크, 빌드마다 보관
+        }                                                   // each 끝
+      }                                                     // script 끝
+    }                                                       // always 끝
+  }                                                         // post 끝
+}                                                           // pipeline 끝
