@@ -4,6 +4,8 @@
 Vivado 2022.2 XSim에서 검증하는 UVM 환경, CI/CD, 에이전트 도구입니다. 대상 보드는 Zybo Z7-20
 (xc7z020clg400-1)입니다.
 
+**포트폴리오 페이지:** https://socdesignasic.github.io/dma-uvm-verif/
+
 > **DUT RTL은 들어 있지 않습니다.** 이 저장소에는 검증 코드만 있습니다. 실행하기 전에
 > 다음을 추가하세요 (모두 이 저장소의 git에서 무시됨):
 > - `HW/`: DUT RTL. 테스트벤치는 `verif/filelist/rtl.f`와 unit filelist에 적힌 파일과 모듈 이름을

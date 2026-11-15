@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="AXI DMA IP UVM 검증 환경, 발견한 RTL 버그, Multi-Agent 자동화, Jenkins CI, FPGA 타이밍을 정리한 검증 포트폴리오">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>AXI DMA UVM Verification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 단일 칼럼 엔지니어링 노트. 파형 뷰어의 신호 색(파랑=정상, 주황=경고, 빨강=버그)을 액센트로 씀 */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #16202c;
+  --muted: #5a6676;
+  --line: #dde2e8;
+  --grid: #eef1f4;
+  --sig: #1f5fd1;
+  --sig-soft: #e4ecfb;
+  --warn: #c27a0e;
+  --warn-soft: #fbf0dc;
+  --bug: #c3352b;
+  --bug-soft: #fbe5e3;
+  --ok: #1d8a5a;
+  --ok-soft: #e0f3ea;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f151d; --surface: #161e29; --ink: #e3e8ef; --muted: #98a4b4; --line: #2a3544; --grid: #1c2633;
+  --sig: #6c9cf0; --sig-soft: #1b2a45; --warn: #e6a446; --warn-soft: #3a2c14; --bug: #f0776c; --bug-soft: #3d1d1b;
+  --ok: #4cc28c; --ok-soft: #15372a; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f151d; --surface: #161e29; --ink: #e3e8ef; --muted: #98a4b4; --line: #2a3544; --grid: #1c2633;
+  --sig: #6c9cf0; --sig-soft: #1b2a45; --warn: #e6a446; --warn-soft: #3a2c14; --bug: #f0776c; --bug-soft: #3d1d1b;
+  --ok: #4cc28c; --ok-soft: #15372a; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15.5px; line-height: 1.7; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 48px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 64px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: clamp(28px, 4.6vw, 42px); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 23px; font-weight: 700; }
+h3 { font-size: 16.5px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+a { color: var(--sig); }
+a:focus-visible { outline: 2px solid var(--sig); outline-offset: 2px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 20px; min-width: 0; }
+.sec-head { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 20px; }
+.sec-head .eyebrow { color: var(--sig); }
+
+/* hero */
+.hero { display: grid; gap: 22px; }
+.hero .lead { font-size: 17px; color: var(--muted); max-width: 64ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13.5px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 600; }
+.stack { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--f-mono); font-size: 12px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.stat { padding: 16px 18px; display: grid; gap: 2px; border-left: 1px solid var(--line); }
+.stat:first-child { border-left: 0; }
+.stat .v { font-family: var(--f-mono); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: 13px; color: var(--muted); }
+.stat.bug .v { color: var(--bug); }
+@media (max-width: 680px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat:nth-child(3) { border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--line); }
+}
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 6px; font-weight: 600; font-size: 14px; text-decoration: none; border: 1px solid var(--sig); color: var(--sig); background: var(--surface); }
+.btn.primary { background: var(--sig); color: var(--surface); }
+.note { font-size: 13px; color: var(--muted); }
+
+/* panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 20px; min-width: 0; }
+.scroll { overflow-x: auto; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+ul.clean { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+ul.clean li::marker { color: var(--muted); }
+
+/* DUT diagram */
+.dut svg { display: block; min-width: 720px; width: 100%; height: auto; }
+.dut text { font-family: var(--f-mono); }
+
+/* tables */
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.bug { background: var(--bug-soft); color: var(--bug); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.sig { background: var(--sig-soft); color: var(--sig); }
+
+/* bug card */
+.bug-main { display: grid; gap: 16px; border: 1px solid var(--line); border-left: 0; border-radius: 8px; background: var(--surface); padding: 22px; }
+.bug-title { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.kv { display: grid; grid-template-columns: 92px 1fr; gap: 6px 14px; font-size: 14.5px; }
+.kv dt { color: var(--muted); font-weight: 600; }
+.kv dd { margin: 0; min-width: 0; }
+.wave { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.wave svg { display: block; min-width: 780px; width: 100%; height: auto; }
+.wave text { font-family: var(--f-mono); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+pre.cmd { margin: 0; font-family: var(--f-mono); font-size: 13px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
+
+/* agent flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.node { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--surface); display: grid; gap: 4px; align-content: start; position: relative; }
+.node .n { font-family: var(--f-mono); font-size: 13px; font-weight: 600; color: var(--sig); }
+.node .d { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.node:not(:last-child)::after { content: "→"; position: absolute; right: -10px; top: 50%; transform: translate(50%, -50%); color: var(--muted); font-family: var(--f-mono); }
+.node.gate { border-style: dashed; border-color: var(--warn); }
+.node.gate .n { color: var(--warn); }
+@media (max-width: 760px) {
+  .flow { grid-template-columns: 1fr; }
+  .node:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -10px; transform: translate(50%, 50%); }
+}
+.tools { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* CI strip */
+.pipe { display: flex; flex-wrap: wrap; gap: 6px; }
+.stage { flex: 1 1 120px; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; background: var(--surface); display: grid; gap: 2px; min-width: 0; }
+.stage .s { font-size: 13.5px; font-weight: 600; }
+.stage .t { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.stage.skip { background: transparent; border-style: dashed; }
+.stage.skip .s { color: var(--muted); }
+
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 4px; }
+@media (prefers-reduced-motion: no-preference) { .btn { transition: filter .15s; } .btn:hover { filter: brightness(1.08); } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Verification Portfolio · 2026.11</div>
+  <h1>AXI DMA IP UVM 검증 환경과<br>AI Agent 기반 검증 자동화</h1>
+  <p class="lead">AXI4-Lite 레지스터, AXI4 read/write DMA, AXI-Stream 연산기로 이루어진 DMA IP를 Vivado XSim에서 UVM으로 검증했습니다. 검증 루프는 LLM Agent가 MCP로 시뮬레이터를 직접 다루도록 자동화했고, 모든 push는 Jenkins 회귀로 확인합니다. 이 과정에서 RTL 기능 버그 2건과 타이밍 위험 1건을 찾았습니다.</p>
+  <div class="stats" role="list">
+    <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top)</span></div>
+    <div class="stat bug" role="listitem"><span class="v">2 + 1</span><span class="k">RTL 버그 + 타이밍 위험</span></div>
+    <div class="stat" role="listitem"><span class="v">123</span><span class="k">회귀 실행, fail 0 (xfail 12)</span></div>
+    <div class="stat" role="listitem"><span class="v">~9 min</span><span class="k">push당 CI smoke (36 tests)</span></div>
+  </div>
+  <div class="stack">
+    <span class="chip">SystemVerilog / UVM</span><span class="chip">SVA</span><span class="chip">Vivado 2022.2 XSim</span>
+    <span class="chip">Jenkins (JCasC)</span><span class="chip">Python</span><span class="chip">MCP</span><span class="chip">Claude Code</span>
+    <span class="chip">Zynq-7000 · Zybo Z7-20</span>
+  </div>
+  <div class="links">
+    <a class="btn primary" href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">GitHub 저장소 보기</a>
+  </div>
+  <p class="note">DUT는 공개된 AXI DMA IP이고, RTL 설계는 본인 작업이 아닙니다. 검증 환경, 테스트, CI, 자동화는 직접 만들었습니다. 저장소에는 RTL을 넣지 않았습니다.</p>
+</header>
+
+<section aria-labelledby="s-dut">
+  <div class="sec-head"><span class="eyebrow">01 · DUT와 검증 환경</span><h2 id="s-dut">무엇을 검증했나</h2></div>
+  <p>CPU가 AXI4-Lite로 원본 주소, 대상 주소, 길이를 쓰고 시작하면, RDMA가 메모리에서 읽은 데이터를 8비트 lane 8개 덧셈기로 가공하고 WDMA가 다시 메모리에 씁니다. TB는 세 인터페이스를 각각 agent로 감싸고, 메모리 모델과 scoreboard로 결과 바이트와 AXI 규칙을 모두 확인합니다.</p>
+  <div class="panel dut scroll">
+    <svg viewBox="0 0 760 300" role="img" aria-label="DUT 블록도와 UVM 환경">
+      <rect x="1" y="1" width="758" height="298" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="4 4"/>
+      <text x="16" y="24" font-size="11" fill="var(--muted)">uvm_env (top)</text>
+      <!-- DUT box -->
+      <rect x="170" y="60" width="420" height="190" rx="6" fill="var(--sig-soft)" stroke="var(--sig)"/>
+      <text x="182" y="80" font-size="11" fill="var(--sig)" font-weight="600">DUT · dma_ip_top</text>
+      <!-- regs -->
+      <rect x="190" y="94" width="380" height="34" rx="4" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="380" y="115" font-size="12" fill="var(--ink)" text-anchor="middle">control_s_axi · 레지스터 (src / dst / len / start / irq)</text>
+      <!-- datapath -->
+      <g font-size="12" fill="var(--ink)" text-anchor="middle">
+        <rect x="190" y="160" width="62" height="60" rx="4" fill="var(--surface)" stroke="var(--line)"/><text x="221" y="194">RDMA</text>
+        <rect x="270" y="160" width="62" height="60" rx="4" fill="var(--surface)" stroke="var(--line)"/><text x="301" y="188">FIFO</text><text x="301" y="204" font-size="10" fill="var(--muted)">64</text>
+        <rect x="350" y="160" width="62" height="60" rx="4" fill="var(--surface)" stroke="var(--line)"/><text x="381" y="188">Adder</text><text x="381" y="204" font-size="10" fill="var(--muted)">8×8b</text>
+        <rect x="430" y="160" width="62" height="60" rx="4" fill="var(--surface)" stroke="var(--line)"/><text x="461" y="194">FIFO</text>
+        <rect x="508" y="160" width="62" height="60" rx="4" fill="var(--surface)" stroke="var(--bug)" stroke-width="1.6"/><text x="539" y="194" fill="var(--bug)">WDMA</text>
+      </g>
+      <g stroke="var(--muted)" stroke-width="1.2" fill="none">
+        <path d="M252 190 H270"/><path d="M332 190 H350"/><path d="M412 190 H430"/><path d="M492 190 H508"/>
+      </g>
+      <!-- agents -->
+      <g font-size="11.5" text-anchor="middle">
+        <rect x="16" y="94" width="130" height="34" rx="4" fill="var(--surface)" stroke="var(--ink)"/>
+        <text x="81" y="115" fill="var(--ink)">axil_agent (master)</text>
+        <rect x="16" y="168" width="130" height="44" rx="4" fill="var(--surface)" stroke="var(--ink)"/>
+        <text x="81" y="187" fill="var(--ink)">axi4_slv_agent</text><text x="81" y="202" fill="var(--muted)" font-size="10">AR/R · 메모리 모델</text>
+        <rect x="614" y="168" width="130" height="44" rx="4" fill="var(--surface)" stroke="var(--ink)"/>
+        <text x="679" y="187" fill="var(--ink)">axi4_slv_agent</text><text x="679" y="202" fill="var(--muted)" font-size="10">AW/W/B · 메모리 모델</text>
+        <rect x="614" y="94" width="130" height="34" rx="4" fill="var(--surface)" stroke="var(--ink)"/>
+        <text x="679" y="115" fill="var(--ink)">interrupt 확인</text>
+        <rect x="250" y="264" width="260" height="26" rx="4" fill="var(--surface)" stroke="var(--ok)"/>
+        <text x="380" y="281" fill="var(--ok)">scoreboard · coverage (cg_job, cg_burst)</text>
+      </g>
+      <g stroke="var(--ink)" stroke-width="1.2" fill="none">
+        <path d="M146 111 H190"/><path d="M146 190 H190"/><path d="M570 190 H614"/><path d="M570 111 H614"/>
+      </g>
+      <g stroke="var(--ok)" stroke-width="1" stroke-dasharray="3 3" fill="none">
+        <path d="M81 212 V277 H250"/><path d="M679 212 V277 H510"/>
+      </g>
+      <text x="168" y="104" font-size="10" fill="var(--muted)" text-anchor="middle">AXI4-Lite</text>
+      <text x="168" y="183" font-size="10" fill="var(--muted)" text-anchor="middle">AXI4 R</text>
+      <text x="592" y="183" font-size="10" fill="var(--muted)" text-anchor="middle">AXI4 W</text>
+    </svg>
+  </div>
+  <div class="two">
+    <div class="panel">
+      <h3>단계적 검증: unit → IP top</h3>
+      <ul class="clean" style="margin-top:10px">
+        <li>하위 블록 unit TB 5개: <code>fifo</code>(깊이 64), <code>fifo_d4</code>(full/empty 경계), <code>skid</code>, <code>adder</code>(32b lane), <code>adder8</code>(8b lane)</li>
+        <li>unit 테스트 6종: smoke, rand, backpressure, trickle, fixed_side, post_reset</li>
+        <li>IP top TB: AXI4-Lite master + AXI4 slave 메모리 모델로 실제 DMA 동작 전체를 검증</li>
+        <li>파일 하나에 클래스 하나. RAL 대신 레지스터 맵 상수와 <code>write_reg()/read_reg()</code></li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Top 테스트 11종</h3>
+      <ul class="clean" style="margin-top:10px">
+        <li><code>smoke</code>, <code>small</code>, <code>large</code>, <code>rand</code></li>
+        <li><code>size_edge</code> (1 / 16 beat 경계), <code>4kb</code> (4KB 경계 분할)</li>
+        <li><code>backpressure</code> (W/AR/R/B 랜덤 지연), <code>aw_backpressure</code> (AWREADY 지연)</li>
+        <li><code>irq</code>, <code>reg_bitbash</code>, <code>reg_reset</code></li>
+        <li>AXI·valid/ready 프로토콜 SVA는 인터페이스에 상주</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-bug">
+  <div class="sec-head"><span class="eyebrow">02 · 대표 성과</span><h2 id="s-bug">BUG-002: AWREADY가 늦으면 WDMA가 멈춤</h2></div>
+  <div class="bug-main">
+    <div class="bug-title"><span class="pill bug">OPEN · RTL</span><h3>W beat가 AW 수락보다 먼저 나가고, 그 beat를 세지 않아 WLAST가 3 beat 늦게 나옴</h3></div>
+    <dl class="kv">
+      <dt>발견</dt><dd>AXI slave가 AWREADY를 늦추는 <code>dma_aw_backpressure_test</code>. 다른 테스트는 AWREADY를 바로 주기 때문에 드러나지 않던 경로입니다.</dd>
+      <dt>증상</dt><dd>16 beat burst의 WLAST가 19번째 beat에 나오고, 이후 burst가 모두 밀립니다. B 응답 수가 끝내 맞지 않아 <code>ap_done</code>이 나오지 않습니다.</dd>
+      <dt>원인</dt><dd><code>WVALID</code>가 W 상태 머신과 무관하게 FIFO 상태만 따릅니다. W FSM이 아직 IDLE이면 burst 카운터가 0에 묶여 있어, 그동안 수락된 3 beat가 세어지지 않습니다.</dd>
+      <dt>수정안</dt><dd><code>WVALID = s_valid &amp; w_s_run_w</code>, <code>s_ready = WREADY &amp; w_s_run_w</code></dd>
+      <dt>영향</dt><dd>Zynq HP 포트나 interconnect가 AWREADY를 늦추면 실제 보드에서도 멈출 수 있습니다.</dd>
+    </dl>
+    <div class="wave" id="wave" aria-label="BUG-002 파형"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--warn)"></span>AW 수락 전에 나간 beat (카운트 안 됨)</span>
+      <span><span class="sw" style="background:var(--sig)"></span>정상 카운트된 beat</span>
+      <span><span class="sw" style="background:var(--bug)"></span>실제 WLAST</span>
+      <span><span class="sw" style="border:1.5px dashed var(--ok)"></span>slave가 기대한 WLAST</span>
+    </div>
+    <pre class="cmd">python scripts/sim.py run --tb top --test dma_aw_backpressure_test --seed 1</pre>
+  </div>
+  <div class="panel scroll">
+    <table>
+      <thead><tr><th>ID</th><th>블록</th><th>내용</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr><td class="num">BUG-002</td><td>WDMA</td><td>AW 수락 전 W beat 미계수 → WLAST 지연, 전송 멈춤</td><td><span class="pill bug">open</span></td></tr>
+        <tr><td class="num">BUG-001</td><td>Skid buffer</td><td>리셋 직후 <code>s_ready=0</code>인데 beat를 받아 첫 beat를 두 번 출력</td><td><span class="pill warn">won't fix</span></td></tr>
+        <tr><td class="num">NOTE-001</td><td>RDMA/WDMA</td><td>burst 주소 계산 루프가 한 사이클에 20단 로직. 100MHz에서 WNS +0.014ns, 전체 시스템은 기본 전략으로 −0.347ns</td><td><span class="pill sig">timing</span></td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:10px">RTL은 고치지 않고 재현 테스트를 <code>known_fail</code>로 등록했습니다. CI는 계속 초록색이고, 누군가 RTL을 고치면 그 테스트가 XPASS가 되어 CI가 알려 줍니다.</p>
+  </div>
+</section>
+
+<section aria-labelledby="s-agent">
+  <div class="sec-head"><span class="eyebrow">03 · 자동화</span><h2 id="s-agent">Multi-Agent 검증 루프</h2></div>
+  <p>Vivado 시뮬레이션 흐름을 MCP 서버로 감싸 LLM Agent가 도구처럼 호출하게 했습니다. 역할별 Agent 다섯 개가 계획부터 CI 확인까지 한 바퀴를 돌고, RTL 버그와 커밋은 사람이 확인합니다.</p>
+  <div class="flow">
+    <div class="node"><span class="n">verif-planner</span><span class="d">RTL·vplan·커버리지를 읽고 작업 목록 작성</span></div>
+    <div class="node"><span class="n">uvm-builder<br>coverage-closer</span><span class="d">테스트·SVA 구현, 빈 bin을 채울 자극 추가</span></div>
+    <div class="node"><span class="n">sim-triage</span><span class="d">실패를 TB 버그 / RTL 버그 / 알려진 버그 / 환경으로 분류</span></div>
+    <div class="node gate"><span class="n">사람 확인</span><span class="d">RTL 버그 판정, 커밋 승인</span></div>
+    <div class="node"><span class="n">ci-watcher</span><span class="d">Jenkins 결과와 flaky 테스트를 커밋에 연결</span></div>
+  </div>
+  <div class="two">
+    <div class="panel">
+      <h3>Vivado MCP 서버 (Python)</h3>
+      <div class="tools" style="margin-top:10px">
+        <span class="chip">list_testbenches</span><span class="chip">lint</span><span class="chip">run_test</span><span class="chip">get_log_excerpt</span>
+        <span class="chip">coverage_report</span><span class="chip">start_regression</span><span class="chip">regression_status</span><span class="chip">list_known_bugs</span>
+      </div>
+      <p class="note" style="margin-top:10px">TB·테스트 이름과 plusarg는 화이트리스트로 검증하고, 로그 접근은 출력 디렉터리 안으로 제한합니다.</p>
+    </div>
+    <div class="panel">
+      <h3>검증 결과를 믿을 수 있게 하는 장치</h3>
+      <ul class="clean" style="margin-top:10px">
+        <li>Agent가 RTL을 고쳐 테스트를 통과시키지 못하도록 hook으로 <code>HW/</code> 쓰기를 차단</li>
+        <li>검사 완화·assertion 삭제 금지. 실패는 TB 버그 아니면 RTL 버그로만 처리</li>
+        <li>실제로 실행한 결과만 인정하고, 판정마다 재현 명령을 남김</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-ci">
+  <div class="sec-head"><span class="eyebrow">04 · CI/CD</span><h2 id="s-ci">Jenkins 회귀 파이프라인</h2></div>
+  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다.</p>
+  <div class="pipe" aria-label="빌드 #22 단계">
+    <div class="stage"><span class="s">Plan · Lint</span><span class="t">RTL + top 컴파일</span></div>
+    <div class="stage"><span class="s">Unit regression</span><span class="t">30 runs · 258s</span></div>
+    <div class="stage"><span class="s">Top regression</span><span class="t">6 runs · 55s</span></div>
+    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014 · 168s</span></div>
+    <div class="stage skip"><span class="s">Bitstream · Coverage</span><span class="t">nightly full only</span></div>
+  </div>
+  <div class="two">
+    <div class="panel scroll">
+      <table>
+        <thead><tr><th></th><th>push (smoke)</th><th>nightly (full)</th></tr></thead>
+        <tbody>
+          <tr><td>트리거</td><td>SCM 폴링 5분</td><td>매일 02시</td></tr>
+          <tr><td>범위</td><td>unit 전부 + top 6종</td><td>전체 테스트</td></tr>
+          <tr><td>seed</td><td class="num">1</td><td class="num">5</td></tr>
+          <tr><td>추가 단계</td><td>OOC 타이밍</td><td>비트스트림·XSA, 커버리지 HTML</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel scroll">
+      <table>
+        <thead><tr><th>빌드</th><th>결과</th><th>tests</th><th>시간</th></tr></thead>
+        <tbody>
+          <tr><td class="num">#22</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.0 min</td></tr>
+          <tr><td class="num">#21</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">8.8 min</td></tr>
+          <tr><td class="num">#20</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">10.5 min</td></tr>
+          <tr><td class="num">#19</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.6 min</td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin-top:8px">skip 4는 <code>known_fail</code>로 등록된 버그 재현 테스트입니다.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-cov">
+  <div class="sec-head"><span class="eyebrow">05 · Coverage</span><h2 id="s-cov">커버리지 모델</h2></div>
+  <div class="two">
+    <div class="panel">
+      <h3>Top: <code>cg_job</code>, <code>cg_burst</code></h3>
+      <ul class="clean" style="margin-top:10px">
+        <li>전송 길이: 1 / 2–15 / 16(최대 burst) / 17–511 / 512(정확히 4KB) / 그 이상 beat</li>
+        <li>더할 값: 0, 1, 255 경계, 그리고 무시돼야 하는 상위 비트가 켜진 경우</li>
+        <li>원본·대상 주소의 4KB 경계 통과 여부</li>
+        <li>burst 방향 × 길이, 방향 × 4KB 분할 cross</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Unit: <code>cg_beat</code>, <code>cg_cycle</code></h3>
+      <ul class="clean" style="margin-top:10px">
+        <li>lane 값 0 / max, carry 발생 여부</li>
+        <li>입출력 valid/ready 상태 4가지와 그 cross</li>
+        <li>3 사이클 연속 전송(back-to-back) 같은 시퀀스 bin</li>
+      </ul>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>XSim 2022.2에서 찾아 우회한 문제</h3>
+    <ul class="clean" style="margin-top:10px">
+      <li>넓은 범위의 <code>dist</code>가 심하게 치우침 → 경계값 편향을 절차적으로 생성</li>
+      <li><code>coverpoint</code> 식 안의 폭 변환을 잘못 계산 → 미리 계산한 변수를 샘플링</li>
+      <li>bin 상한 <code>$</code>가 모든 샘플을 한 bin에 넣음 → 상한을 명시</li>
+      <li>함수 결과에 비트 선택 불가, <code>small</code>/<code>large</code> 등이 키워드 → 임시 변수, bin 이름 변경</li>
+      <li><code>xcrg</code>가 기존 보고서에 덧붙임 → 병합 전에 출력 디렉터리를 비움</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="s-fpga">
+  <div class="sec-head"><span class="eyebrow">06 · FPGA</span><h2 id="s-fpga">Zynq-7000 통합과 타이밍</h2></div>
+  <div class="panel scroll">
+    <table>
+      <thead><tr><th>빌드</th><th>전략</th><th>WNS</th><th>WHS</th><th>결과</th></tr></thead>
+      <tbody>
+        <tr><td>IP 단독 (OOC, 100MHz)</td><td>기본</td><td class="num">+0.014 ns</td><td class="num">+0.125 ns</td><td><span class="pill ok">met</span></td></tr>
+        <tr><td>전체 시스템 (PS7 + interconnect)</td><td>기본</td><td class="num">−0.347 ns</td><td class="num">–</td><td><span class="pill bug">fail</span></td></tr>
+        <tr><td>전체 시스템</td><td>Explore + phys_opt</td><td class="num">+0.003 ns</td><td class="num">–</td><td><span class="pill ok">met</span></td></tr>
+      </tbody>
+    </table>
+    <p class="note" style="margin-top:10px">block design을 Tcl로 다시 만들 수 있게 export하고, 비트스트림과 XSA 생성을 CI에 넣었습니다. CI는 WNS가 0보다 작으면 실패로 처리합니다. 보드 위 실행은 다음 단계입니다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #19–#22, 로컬 회귀 <code>--suite all --seeds 3</code>).</span>
+</footer>
+</div>
+
+<script>
+(function () {
+  // BUG-002 파형: beat 슬롯 단위로 그림 (시간축은 W handshake 순서)
+  const N = 20, x0 = 150, w = 30, rowH = 40, top = 30;
+  const rows = ["AWREADY·AWVALID", "W handshake", "RTL burst count", "WLAST (기대)", "WLAST (실제)"];
+  const H = top + rows.length * rowH + 30, W = x0 + N * w + 20;
+  const X = i => x0 + (i - 1) * w;           // beat i의 왼쪽 x
+  const y = r => top + r * rowH;              // 행 r의 위쪽 y
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="AW 수락 전 3 beat가 나가 WLAST가 19번째 beat에 나옴">`;
+  for (let i = 1; i <= N + 1; i++) s += `<line x1="${X(i)}" y1="${top - 6}" x2="${X(i)}" y2="${H - 24}" stroke="var(--grid)"/>`;
+  for (let i = 1; i <= N; i++) s += `<text x="${X(i) + w / 2}" y="${top - 12}" font-size="10" fill="var(--muted)" text-anchor="middle">${i}</text>`;
+  rows.forEach((n, r) => s += `<text x="10" y="${y(r) + 24}" font-size="11.5" fill="var(--ink)">${n}</text>`);
+  // AW handshake: beat 3과 4 사이
+  const hi = y(0) + 8, lo = y(0) + 30, ax = X(4) - 4;
+  s += `<path d="M${x0} ${lo} H${ax - 6} V${hi} H${ax + 6} V${lo} H${X(N + 1)}" fill="none" stroke="var(--sig)" stroke-width="1.6"/>`;
+  s += `<text x="${ax + 10}" y="${hi + 4}" font-size="10.5" fill="var(--sig)">AW #0 수락 (16 beat)</text>`;
+  // W beats
+  for (let i = 1; i <= 19; i++) {
+    const early = i <= 3;
+    s += `<rect x="${X(i) + 3}" y="${y(1) + 8}" width="${w - 6}" height="22" rx="3" fill="${early ? "var(--warn)" : "var(--sig)"}" opacity="${early ? 1 : 0.85}"/>`;
+  }
+  // counter
+  for (let i = 1; i <= 19; i++) {
+    const v = i <= 3 ? "0" : String(i - 3);
+    s += `<text x="${X(i) + w / 2}" y="${y(2) + 24}" font-size="11" text-anchor="middle" fill="${i <= 3 ? "var(--warn)" : "var(--ink)"}">${v}</text>`;
+  }
+  // expected WLAST at beat 16
+  const base = r => y(r) + 30, top2 = r => y(r) + 8;
+  s += `<path d="M${x0} ${base(3)} H${X(16)} V${top2(3)} H${X(17)} V${base(3)} H${X(N + 1)}" fill="none" stroke="var(--ok)" stroke-width="1.6" stroke-dasharray="4 3"/>`;
+  s += `<text x="${X(17) + 6}" y="${top2(3) + 6}" font-size="10.5" fill="var(--ok)">16번째에 와야 함</text>`;
+  // actual WLAST at beat 19
+  s += `<path d="M${x0} ${base(4)} H${X(19)} V${top2(4)} H${X(20)} V${base(4)} H${X(N + 1)}" fill="none" stroke="var(--bug)" stroke-width="1.8"/>`;
+  s += `<text x="${X(19) - 6}" y="${top2(4) + 6}" font-size="10.5" fill="var(--bug)" text-anchor="end">19번째에 나옴 → 이후 burst 밀림, ap_done 없음</text>`;
+  s += `<text x="${x0}" y="${H - 8}" font-size="10" fill="var(--muted)">가로축: W handshake 순번 (seed 1 기준 715ns ~ 1235ns)</text>`;
+  s += `</svg>`;
+  document.getElementById("wave").innerHTML = s;
+})();
+</script>
+</body>
+</html>
