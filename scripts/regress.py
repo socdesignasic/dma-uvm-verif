@@ -5,6 +5,7 @@ regress.py - 선택한 TB에 등록된 모든 테스트를 seed N개로 병렬 �
   python scripts/regress.py --suite unit --seeds 3
   python scripts/regress.py --suite all  --seeds 2 --jobs 6
   python scripts/regress.py --tb top --tests dma_smoke_test dma_irq_test
+  python scripts/regress.py --plan out/ml/plan.json      # ml_regress.py가 만든 계획 (테스트마다 seed 수)
 
 TB마다 한 번씩 (차례로) 빌드한 뒤, (tb, test, seed) 작업을 스레드 풀에서 실행합니다.
 실행마다 `sim.py run --no-build --isolate`를 부르므로 단일 실행과 같은 코드 경로를 타고,
@@ -92,12 +93,15 @@ def main() -> int:                                          # 진입점
     ap.add_argument("--timeout", type=int, help="실행 하나의 타임아웃 (초)")  # 실행 하나의 시간 제한
     ap.add_argument("--cov", action="store_true", help="코드 커버리지 빌드")  # 코드 커버리지
     ap.add_argument("--name", help="out/regress/ 아래 보고서 이름 (기본: suite 이름 또는 'custom')")  # 보고서 이름
+    ap.add_argument("--plan", help="회귀 계획 JSON (scripts/ml_regress.py analyze 출력): TB, 테스트, seed 수")  # 계획 파일
     a = ap.parse_args()                                     # 인자 파싱
 
+    plan = json.loads(Path(a.plan).read_text(encoding="utf-8"))["plan"] if a.plan else {}  # TB -> {테스트: seed 수}
     tbs = list(a.tb) + [t for t in SUITES.get(a.suite, []) if t not in a.tb]  # --tb 목록 + suite의 TB (중복 제외)
+    tbs += [t for t in plan if t not in tbs]                # 계획에 있는 TB 추가
     if not tbs:                                             # TB가 하나도 없으면
         ap.error("give --tb or --suite")                    # 오류
-    out = ROOT / "out" / "regress" / (a.name or a.suite or "custom")  # 보고서 디렉터리
+    out = ROOT / "out" / "regress" / (a.name or a.suite or ("plan" if plan else "custom"))  # 보고서 디렉터리
     out.mkdir(parents=True, exist_ok=True)                  # 생성
     t0 = time.time()                                        # 시작 시각
 
@@ -109,8 +113,11 @@ def main() -> int:                                          # 진입점
         tests = CFG["tbs"][tb].get("tests") or [CFG["tbs"][tb].get("default_test")]  # 등록된 테스트 목록 (없으면 기본 테스트)
         if a.tests:                                         # --tests가 있으면
             tests = [t for t in tests if t in a.tests]      # 그 테스트만 남김
+        if tb in plan:                                      # 계획이 있는 TB면
+            tests = [t for t in tests if t in plan[tb]]     # 계획에 있는 테스트만
         for test in tests:                                  # 테스트마다
-            seeds = [a.first_seed] + [random.randint(1, 2**31 - 1) for _ in range(a.seeds - 1)]  # 첫 seed + 랜덤 seed (seeds - 1)개
+            n = plan[tb][test] if tb in plan else a.seeds   # seed 수 (계획이 있으면 계획대로)
+            seeds = [a.first_seed] + [random.randint(1, 2**31 - 1) for _ in range(n - 1)]  # 첫 seed + 랜덤 seed (n - 1)개
             work += [(tb, test, s) for s in seeds]          # (tb, test, seed) 작업 추가
 
     print(f"regress: {len(work)} runs on {len(tbs)} TBs, {a.jobs} parallel jobs", flush=True)  # 작업 수 안내
