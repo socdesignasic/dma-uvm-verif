@@ -20,7 +20,7 @@ Vivado 2022.2 XSim에서 검증하는 UVM 환경, CI/CD, 에이전트 도구입�
 | 경로 | 내용 |
 |---|---|
 | `verif/` | UVM 테스트벤치: agent, env, sequence, 테스트, TB top, 테스트 목록(`sim_cfg.json`), vplan, 버그 목록 |
-| `scripts/` | `sim.py` (lint/실행/커버리지), `regress.py` (병렬 회귀), `fpga.py` (OOC 타이밍, 비트스트림 + XSA), `board.py` / `board_c.py` (보드 시험) |
+| `scripts/` | `sim.py` (lint/실행/커버리지), `regress.py` (병렬 회귀, `--plan`), `ml_regress.py` (커버리지 모델 학습과 회귀 계획), `fpga.py` (OOC 타이밍, 비트스트림 + XSA), `board.py` / `board_c.py` (보드 시험) |
 | `fw/dma_board_test/` | Cortex-A9 bare-metal C 보드 시험 프로그램 (Vitis standalone BSP) |
 | `Jenkinsfile`, `ci/` | 로컬 Jenkins (Configuration as Code), Vivado 블록 디자인과 IP 패키징, xsdb 보드 시험(`ci/vivado/board_*.tcl`), Vitis 빌드(`ci/vitis/`) 스크립트 |
 | `mcp/` | 시뮬레이션 흐름을 에이전트에 제공하는 MCP 서버 |
@@ -35,6 +35,44 @@ python scripts/sim.py run --tb top --test dma_smoke_test --seed 1
 python scripts/regress.py --suite all --seeds 2 --jobs 6
 python scripts/sim.py cov-report --tb top
 ```
+
+## ML 회귀 최적화
+
+회귀를 얼마나 돌려야 커버리지가 닫히는지를 데이터로 정합니다 (`scripts/ml_regress.py`).
+
+1. **데이터**: 회귀의 실행마다 기능 커버리지 DB를 `xcrg`로 풀어 bin별 적중 여부를 수집합니다.
+2. **모델**: (테스트, bin)마다 seed 하나로 그 bin을 칠 확률 p를 Beta-Bernoulli 사후 평균으로 추정합니다.
+3. **계획**: bin을 놓칠 확률 `prod_t (1 - p_tb)^n_t`의 합이 `1 - target` 아래가 될 때까지, 실행 1초당 기대
+   커버리지 증가가 가장 큰 테스트에 seed를 하나씩 더합니다 (greedy). 기본으로 모든 테스트를 1회 이상 넣어
+   커버리지에 안 잡히는 검사(레지스터, 알려진 버그 재현)도 계속 돌립니다.
+4. **검증**: 테스트마다 seed를 반으로 나눠 절반으로 학습하고, 학습에 안 쓴 절반에서 계획대로 실행을 뽑아
+   모든 bin을 채우는 비율을 셉니다 (분할 20번 x 추출 200번).
+
+```bash
+python scripts/regress.py --suite all --seeds 20 --jobs 6 --name ml_data     # 학습 데이터 (820회)
+python scripts/ml_regress.py extract --from out/regress/ml_data/summary.json
+python scripts/ml_regress.py analyze --target 0.95                          # out/ml/plan.json, report.md
+python scripts/regress.py --plan out/ml/plan.json                           # 계획대로 회귀
+```
+
+결과 (2026-11-17, 실행 820회로 학습, 6개 TB의 목표 bin 203개):
+
+| 방식 | 실행 수 | 모든 TB 100% 도달 비율 (학습에 안 쓴 seed) |
+|---|---|---|
+| nightly full (테스트당 seed 5개) | 205 | 100.0% |
+| **ML 계획** (모든 테스트 1회 이상) | **49** | **99.1%** |
+| ML 계획 (커버리지만 고려) | 31 | 98.6% |
+| 같은 실행 수를 무작위로 고름 | 49 | 43.5% |
+| CI smoke | 36 | 0.0% (top 커버리지 77%) |
+
+- 전체 데이터로 학습한 47회 계획을 실제로 돌려 6개 TB 모두 100% (203/203 bin), fail 0, xfail 4를 확인했습니다.
+- unit TB는 테스트당 seed 1개로 포화되고, 추가 seed는 모두 top에 배정됩니다 (`dma_rand_test` x4,
+  `dma_irq_test` x3, `dma_size_edge_test` x2). smoke는 고유 bin 5개를 가진 `dma_size_edge_test`가 빠져 있어
+  top 커버리지가 77%에 머뭅니다.
+- `xcrg` 2022.2 텍스트 보고서의 문제를 파서에서 처리합니다. 두 번째 cross 표가 첫 번째 cross의 내용으로
+  중복 출력되고 (그래서 top의 `x_dir_4k`는 모델에서 빠짐), 못 친 cross bin은 `(a b)`·`*`로 묶여 나오며,
+  weight 0인 참고용 cross(`x_io`)가 섞여 있습니다.
+- 딥러닝이 아니라 확률 모델입니다. 커버리지 공간이 작아서 절대 시간보다 비율이 의미 있습니다.
 
 ## 보드 시험 (Zybo Z7-10)
 
