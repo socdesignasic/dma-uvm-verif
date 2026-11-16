@@ -37,7 +37,11 @@ for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 �
 ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트
 OUT = ROOT / "out" / "fpga"                                 # FPGA 결과 디렉터리
 VIV = ROOT / "ci" / "vivado"                                # Vivado Tcl 스크립트 디렉터리
-LUT_LIMIT = {"Slice LUTs": 53200, "Slice Registers": 106400, "Block RAM Tile": 140, "DSPs": 220}  # xc7z020의 자원 총량 (사용률 계산용)
+DEFAULT_PART = "xc7z020clg400-1"                            # 기본 FPGA 부품 (Zybo Z7-20)
+LIMITS = {                                                  # 부품별 자원 총량 (사용률 계산용)
+    "xc7z020clg400-1": {"Slice LUTs": 53200, "Slice Registers": 106400, "Block RAM Tile": 140, "DSPs": 220},  # Zybo Z7-20
+    "xc7z010clg400-1": {"Slice LUTs": 17600, "Slice Registers": 35200, "Block RAM Tile": 60, "DSPs": 80},  # Zybo Z7-10
+}                                                           # LIMITS 끝
 
 
 def vivado() -> str:                                        # Vivado 실행 파일 경로를 돌려주는 함수
@@ -64,7 +68,7 @@ def run_vivado(tcl: Path, out: Path, tclargs: list[str], timeout: int) -> int:  
         return 124                                          # timeout 관례 종료 코드 124
 
 
-def parse_result(out: Path) -> dict:                        # Tcl이 남긴 결과와 보고서를 읽는 함수
+def parse_result(out: Path, part: str) -> dict:   # Tcl이 남긴 결과와 보고서를 읽는 함수
     r = {}                                                  # 결과 사전
     p = out / "result.txt"                                  # Tcl이 쓴 key=value 파일
     if p.exists():                                          # 있으면
@@ -83,7 +87,7 @@ def parse_result(out: Path) -> dict:                        # Tcl이 남긴 결�
             m = re.match(r"\|\s*(Slice LUTs|Slice Registers|Block RAM Tile|DSPs)\*?\s*\|\s*([\d.]+)\s*\|", l)  # LUT/레지스터/BRAM/DSP 행에서 사용량 추출
             if m and m.group(1) not in util:                # 처음 나온 값만 사용
                 util[m.group(1)] = float(m.group(2))        # 사용량 저장
-    r["utilization"] = {k: {"used": v, "pct": round(100 * v / LUT_LIMIT[k], 2)} for k, v in util.items()}  # 사용량과 사용률(%)
+    r["utilization"] = {k: {"used": v, "pct": round(100 * v / LIMITS[part][k], 2)} for k, v in util.items()}  # 사용량과 사용률(%)
     log = out / "vivado.log"                                # Vivado 로그
     if log.exists():                                        # 있으면
         txt = log.read_text(errors="replace")               # 로그 읽기
@@ -132,21 +136,25 @@ def main() -> int:                                          # 진입점
     p.add_argument("--jobs", type=int, default=6)           # 병렬 작업 수
     p.add_argument("--impl-strategy", default="Performance_ExplorePostRoutePhysOpt",  # 구현 전략
                    help="Vivado impl_1 전략 ('default' = Vivado 기본값). BUGS.md NOTE-001 참고")  # 도움말
+    for p in sub.choices.values():                          # 두 명령 모두
+        p.add_argument("--part", default=DEFAULT_PART, choices=sorted(LIMITS),  # FPGA 부품
+                       help="FPGA 부품 (기본 xc7z020clg400-1 = Zybo Z7-20, xc7z010clg400-1 = Zybo Z7-10)")  # 도움말
     a = ap.parse_args()                                     # 인자 파싱
 
-    out = OUT / a.mode                                      # 모드별 결과 디렉터리
+    tag = "" if a.part == DEFAULT_PART else "_" + a.part.split("clg")[0]  # 기본 부품이 아니면 디렉터리 이름 꼬리 (예: _xc7z010)
+    out = OUT / (a.mode + tag)                              # 모드(+부품)별 결과 디렉터리
     shutil.rmtree(out, ignore_errors=True)                  # 이전 결과 삭제
     out.mkdir(parents=True)                                 # 다시 생성
     t0 = time.time()                                        # 시작 시각
     if a.mode == "ooc":                                     # ooc면
-        rc = run_vivado(VIV / "ooc.tcl", out, [str(out), f"{a.period:g}"], timeout=3600)  # ooc.tcl 실행 (최대 1시간)
+        rc = run_vivado(VIV / "ooc.tcl", out, [str(out), f"{a.period:g}", a.part], timeout=3600)  # ooc.tcl 실행 (최대 1시간)
     else:                                                   # system이면
         repo = assemble_ip_repo(OUT / "ip_repo")            # IP repo 조립
-        rc = run_vivado(VIV / "build_system.tcl", out, [str(out), str(repo), str(a.jobs), a.impl_strategy],  # build_system.tcl 실행
+        rc = run_vivado(VIV / "build_system.tcl", out, [str(out), str(repo), str(a.jobs), a.impl_strategy, a.part],  # build_system.tcl 실행
                         timeout=4 * 3600)                   # 최대 4시간
 
-    res = parse_result(out)                                 # 결과 파싱
-    res.update({"mode": a.mode, "git": git_rev(), "vivado_rc": rc,  # 모드, git 커밋, Vivado 종료 코드
+    res = parse_result(out, a.part)                         # 결과 파싱
+    res.update({"mode": a.mode, "part": a.part, "git": git_rev(), "vivado_rc": rc,  # 모드, git 커밋, Vivado 종료 코드
                 "elapsed_s": round(time.time() - t0), "time": time.strftime("%Y-%m-%d %H:%M:%S")})  # 걸린 시간, 시각
     if a.mode == "system":                                  # system이면
         arts = {}                                           # 결과물 정보
@@ -164,7 +172,7 @@ def main() -> int:                                          # 진입점
     (out / "result.json").write_text(json.dumps(res, indent=2), encoding="utf-8")  # result.json 저장
 
     print("=" * 72)                                         # 구분선
-    print(f"[{res['verdict']}] fpga {a.mode}  WNS={res.get('wns')} ns  WHS={res.get('whs')} ns"  # 판정과 WNS/WHS
+    print(f"[{res['verdict']}] fpga {a.mode} {a.part}  WNS={res.get('wns')} ns  WHS={res.get('whs')} ns"  # 판정과 WNS/WHS
           f"  ({res['elapsed_s']}s, git {res['git']})")     # 걸린 시간과 git 커밋
     for k, v in res.get("utilization", {}).items():         # 자원마다
         print(f"   {k:16s} {v['used']:>8g}  ({v['pct']}%)")  # 사용량과 사용률 출력

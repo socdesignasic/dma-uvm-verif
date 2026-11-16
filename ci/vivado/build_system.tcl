@@ -1,12 +1,12 @@
 # 전체 시스템 빌드: Zynq PS7 + dma_ip_top block design -> 비트스트림 + XSA.
 # block design은 ci/vivado/bd/design_1.tcl에서 가져옴 (손으로 만든 프로젝트에서 export).
 # IP는 scripts/fpga.py가 HW/ + ci/vivado/ip/로 조립한 IP repo에서 가져옴.
-#   vivado -mode batch -source ci/vivado/build_system.tcl -tclargs <out_dir> <ip_repo> <jobs>
+#   vivado -mode batch -source ci/vivado/build_system.tcl -tclargs <out_dir> <ip_repo> <jobs> [strategy] [part]
 set root    [file normalize [file join [file dirname [info script]] .. ..]]  ;# 저장소 루트 (이 스크립트의 두 단계 위)
 set out     [file normalize [lindex $argv 0]]               ;# 첫 인자: 출력 디렉터리
 set ip_repo [file normalize [lindex $argv 1]]               ;# 둘째 인자: IP repo
 set jobs    [lindex $argv 2]                                ;# 셋째 인자: 병렬 작업 수
-set part    xc7z020clg400-1                                 ;# Zybo Z7-20의 FPGA 부품
+set part    [expr {[llength $argv] > 4 ? [lindex $argv 4] : "xc7z020clg400-1"}]  ;# 다섯째 인자: FPGA 부품 (기본 Zybo Z7-20)
 
 create_project -force sys [file join $out proj] -part $part  ;# 프로젝트 생성 (있으면 덮어씀)
 set_property ip_repo_paths [list $ip_repo] [current_project]  ;# IP repo 경로 등록

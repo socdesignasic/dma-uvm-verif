@@ -147,7 +147,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 <header class="hero">
   <div class="eyebrow">Verification Portfolio · 2026.11</div>
   <h1>AXI DMA IP UVM 검증 환경과<br>AI Agent 기반 검증 자동화</h1>
-  <p class="lead">AXI4-Lite 레지스터, AXI4 read/write DMA, AXI-Stream 연산기로 이루어진 DMA IP를 Vivado XSim에서 UVM으로 검증했습니다. 검증 루프는 LLM Agent가 MCP로 시뮬레이터를 직접 다루도록 자동화했고, 모든 push는 Jenkins 회귀로 확인합니다. 이 과정에서 RTL 기능 버그 2건과 타이밍 위험 1건을 찾았습니다.</p>
+  <p class="lead">AXI4-Lite 레지스터, AXI4 read/write DMA, AXI-Stream 연산기로 이루어진 DMA IP를 Vivado XSim에서 UVM으로 검증했습니다. 검증 루프는 LLM Agent가 MCP로 시뮬레이터를 직접 다루도록 자동화했고, 모든 push는 Jenkins 회귀로 확인합니다. 이 과정에서 RTL 기능 버그 2건과 타이밍 위험 1건을 찾았고, Zynq 보드의 실제 DDR에서 1MB 전송까지 동작을 확인했습니다.</p>
   <div class="stats" role="list">
     <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top)</span></div>
     <div class="stat bug" role="listitem"><span class="v">2 + 1</span><span class="k">RTL 버그 + 타이밍 위험</span></div>
@@ -157,7 +157,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
   <div class="stack">
     <span class="chip">SystemVerilog / UVM</span><span class="chip">SVA</span><span class="chip">Vivado 2022.2 XSim</span>
     <span class="chip">Jenkins (JCasC)</span><span class="chip">Python</span><span class="chip">MCP</span><span class="chip">Claude Code</span>
-    <span class="chip">Zynq-7000 · Zybo Z7-20</span>
+    <span class="chip">Zynq-7000 · Zybo Z7</span><span class="chip">xsdb (JTAG)</span>
   </div>
   <div class="links">
     <a class="btn primary" href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">GitHub 저장소 보기</a>
@@ -245,7 +245,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <dt>증상</dt><dd>16 beat burst의 WLAST가 19번째 beat에 나오고, 이후 burst가 모두 밀립니다. B 응답 수가 끝내 맞지 않아 <code>ap_done</code>이 나오지 않습니다.</dd>
       <dt>원인</dt><dd><code>WVALID</code>가 W 상태 머신과 무관하게 FIFO 상태만 따릅니다. W FSM이 아직 IDLE이면 burst 카운터가 0에 묶여 있어, 그동안 수락된 3 beat가 세어지지 않습니다.</dd>
       <dt>수정안</dt><dd><code>WVALID = s_valid &amp; w_s_run_w</code>, <code>s_ready = WREADY &amp; w_s_run_w</code></dd>
-      <dt>영향</dt><dd>Zynq HP 포트나 interconnect가 AWREADY를 늦추면 실제 보드에서도 멈출 수 있습니다.</dd>
+      <dt>영향</dt><dd>Zynq HP 포트나 interconnect가 AWREADY를 늦추면 실제 보드에서도 멈출 수 있습니다. 지금 보드 구성(HP0 직결)에서는 AWREADY가 바로 돌아와 재현되지 않았습니다.</dd>
     </dl>
     <div class="wave" id="wave" aria-label="BUG-002 파형"></div>
     <div class="legend">
@@ -370,23 +370,44 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 </section>
 
 <section aria-labelledby="s-fpga">
-  <div class="sec-head"><span class="eyebrow">06 · FPGA</span><h2 id="s-fpga">Zynq-7000 통합과 타이밍</h2></div>
+  <div class="sec-head"><span class="eyebrow">06 · FPGA</span><h2 id="s-fpga">Zynq 보드 통합, 타이밍, 실보드 시험</h2></div>
   <div class="panel scroll">
     <table>
-      <thead><tr><th>빌드</th><th>전략</th><th>WNS</th><th>WHS</th><th>결과</th></tr></thead>
+      <thead><tr><th>빌드 (100MHz)</th><th>부품</th><th>전략</th><th>WNS</th><th>WHS</th><th>결과</th></tr></thead>
       <tbody>
-        <tr><td>IP 단독 (OOC, 100MHz)</td><td>기본</td><td class="num">+0.014 ns</td><td class="num">+0.125 ns</td><td><span class="pill ok">met</span></td></tr>
-        <tr><td>전체 시스템 (PS7 + interconnect)</td><td>기본</td><td class="num">−0.347 ns</td><td class="num">–</td><td><span class="pill bug">fail</span></td></tr>
-        <tr><td>전체 시스템</td><td>Explore + phys_opt</td><td class="num">+0.003 ns</td><td class="num">–</td><td><span class="pill ok">met</span></td></tr>
+        <tr><td>IP 단독 (OOC)</td><td class="num">xc7z020</td><td>기본</td><td class="num">+0.014 ns</td><td class="num">+0.125 ns</td><td><span class="pill ok">met</span></td></tr>
+        <tr><td>전체 시스템 (PS7 + interconnect)</td><td class="num">xc7z020</td><td>기본</td><td class="num">−0.347 ns</td><td class="num">–</td><td><span class="pill bug">fail</span></td></tr>
+        <tr><td>전체 시스템</td><td class="num">xc7z020</td><td>Explore + phys_opt</td><td class="num">+0.003 ns</td><td class="num">+0.011 ns</td><td><span class="pill ok">met</span></td></tr>
+        <tr><td>전체 시스템 (Zybo Z7-10)</td><td class="num">xc7z010</td><td>Explore + phys_opt</td><td class="num">+0.005 ns</td><td class="num">+0.008 ns</td><td><span class="pill ok">met</span></td></tr>
       </tbody>
     </table>
-    <p class="note" style="margin-top:10px">block design을 Tcl로 다시 만들 수 있게 export하고, 비트스트림과 XSA 생성을 CI에 넣었습니다. CI는 WNS가 0보다 작으면 실패로 처리합니다. 보드 위 실행은 다음 단계입니다.</p>
+    <p class="note" style="margin-top:10px">block design을 Tcl로 다시 만들 수 있게 export하고, 비트스트림과 XSA 생성을 CI에 넣었습니다. CI는 WNS가 0보다 작으면 실패로 처리합니다. 빌드 스크립트의 <code>--part</code> 옵션으로 Z7-20과 Z7-10을 모두 만듭니다. Z7-10 사용률은 LUT 38%, FF 35%, BRAM 19%입니다.</p>
+  </div>
+  <div class="panel">
+    <h3>Zybo Z7-10 실보드 시험: 7/7 PASS</h3>
+    <p style="margin-top:8px">xsdb로 JTAG를 통해 비트스트림을 올리고 PS의 DDR을 초기화한 뒤, 시뮬레이션과 같은 레지스터 순서로 DMA를 실행했습니다. 대상 영역을 0xA5로 미리 채우고, 읽어 온 결과를 바이트마다 <code>(원본 + add) &amp; 0xFF</code>와 비교합니다.</p>
+    <div class="scroll" style="margin-top:12px">
+      <table>
+        <thead><tr><th>시험</th><th>크기</th><th>add</th><th>확인한 것</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td class="num">one_beat</td><td class="num">8 B</td><td class="num">1</td><td>최소 전송</td><td><span class="pill ok">PASS</span></td></tr>
+          <tr><td class="num">burst16</td><td class="num">128 B</td><td class="num">0</td><td>정확히 burst 1개</td><td><span class="pill ok">PASS</span></td></tr>
+          <tr><td class="num">burst17</td><td class="num">136 B</td><td class="num">255</td><td>burst + 1 beat, 8비트 lane 올림 버림</td><td><span class="pill ok">PASS</span></td></tr>
+          <tr><td class="num">page4k</td><td class="num">4 KB</td><td class="num">7</td><td>정확히 4KB</td><td><span class="pill ok">PASS</span></td></tr>
+          <tr><td class="num">cross4k</td><td class="num">512 B</td><td class="num">3</td><td>원본·대상 모두 4KB 경계 통과</td><td><span class="pill ok">PASS</span></td></tr>
+          <tr><td class="num">c_ref_64k</td><td class="num">64 KB</td><td class="num">42</td><td>참조 C 예제와 같은 배치 (dst = src + len)</td><td><span class="pill ok">PASS</span></td></tr>
+          <tr><td class="num">big_1m</td><td class="num">1 MB</td><td class="num">200</td><td>랜덤 데이터 대용량</td><td><span class="pill ok">PASS</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre class="cmd" style="margin-top:12px">python scripts/board.py --xsa out/fpga/system_xc7z010/design_1_wrapper.xsa</pre>
+    <p class="note" style="margin-top:10px">BUG-002는 보드에서 재현되지 않았습니다. 이 구성에서는 PS의 HP0 포트가 AWREADY를 바로 돌려줘서 버그 조건이 생기지 않습니다. 시뮬레이션에서 AWREADY를 일부러 늦춰야 드러나는 버그라는 점이 오히려 UVM backpressure 시나리오의 가치를 보여 줍니다.</p>
   </div>
 </section>
 
 <footer>
   <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
-  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #19–#22, 로컬 회귀 <code>--suite all --seeds 3</code>).</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #19–#22, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16).</span>
 </footer>
 </div>
 

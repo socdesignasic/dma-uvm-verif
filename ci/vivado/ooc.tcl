@@ -1,10 +1,10 @@
 # dma_ip_top(HW/의 RTL)를 단독(out-of-context)으로 합성 + 배치 + 배선.
 # block design 없이 타이밍과 사용량을 빠르게 확인하는 용도.
-#   vivado -mode batch -source ci/vivado/ooc.tcl -tclargs <out_dir> <period_ns>
+#   vivado -mode batch -source ci/vivado/ooc.tcl -tclargs <out_dir> <period_ns> [part]
 set root   [file normalize [file join [file dirname [info script]] .. ..]]  ;# 저장소 루트
 set out    [file normalize [lindex $argv 0]]                ;# 첫 인자: 출력 디렉터리
 set period [lindex $argv 1]                                 ;# 둘째 인자: 클럭 주기 (ns)
-set part   xc7z020clg400-1                                  ;# Zybo Z7-20의 FPGA 부품
+set part   [expr {[llength $argv] > 2 ? [lindex $argv 2] : "xc7z020clg400-1"}]  ;# 셋째 인자: FPGA 부품 (기본 Zybo Z7-20)
 file mkdir $out                                             ;# 출력 디렉터리 생성
 
 foreach f [lsort [glob -directory [file join $root HW] -types f */*.v */*/*.v]] { read_verilog $f }  ;# HW/ 아래 모든 .v 파일 읽기
