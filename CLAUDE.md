@@ -24,6 +24,7 @@ Jenkins(http://localhost:8090), 저장소는 `socdesignasic/dma-uvm`(private)입
 | `verif/sim_cfg.json` | TB 목록: filelist, 테스트, `known_fail` |
 | `verif/vplan/vplan.md` | 기능 ↔ 테스트 ↔ 커버리지 대응표 (계속 갱신) |
 | `verif/BUGS.md` | 발견한 RTL 버그 (BUG-001 won't fix, BUG-002 open) |
+| `verif/SIGNOFF.md` | sign-off 기준 S1~S9, waiver(known_fail) 승인 절차, 판정 기록. 판정은 `scripts/signoff.py` |
 | `scripts/` | `sim.py`, `regress.py` |
 | `ci/`, `Jenkinsfile` | Jenkins (JCasC) |
 | `mcp/` | `vivado` MCP 서버, Jenkins/GitHub MCP 설정 |
@@ -36,6 +37,7 @@ python scripts/sim.py lint --tb top
 python scripts/sim.py run --tb top --test dma_smoke_test --seed 1
 python scripts/regress.py --suite all --seeds 2 --jobs 6
 python scripts/sim.py cov-report --tb top     # out/top/cov/func/xcrg_func_cov_report.txt
+python scripts/signoff.py --level smoke       # sign-off 기준 판정 (smoke / nightly / release)
 ```
 
 ## XSim 2022.2 주의사항 (이미 처리함, 다시 만들지 말 것)

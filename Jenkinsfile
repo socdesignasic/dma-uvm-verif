@@ -6,6 +6,7 @@
 //                            + FPGA 단독(out-of-context) 합성/배치배선 타이밍 확인 (100 MHz)
 //   매일 타이머 (02:00)    : full  = 모든 TB의 모든 테스트, seed 5개, 커버리지 보고서
 //                            + FPGA 시스템 빌드: 비트스트림 + XSA (CD 결과물)
+//   모든 빌드 끝에 Sign-off 단계가 verif/SIGNOFF.md 기준을 판정 (smoke / nightly 수준, 못 채우면 UNSTABLE)
 //   수동 "Build with Parameters"로 둘 중 하나를 강제하거나, seed 수를 바꾸거나, 비트스트림을 요청할 수 있음.
 //
 // Agent: label 'vivado' (이 PC). PYTHON / XILINX_VIVADO / REGRESS_JOBS는 노드 환경
@@ -116,13 +117,21 @@ pipeline {                                                  // declarative pipel
         }                                                   // script 끝
       }                                                     // steps 끝
     }                                                       // stage 끝
+
+    stage('Sign-off') {                                     // verif/SIGNOFF.md 기준 판정 (smoke는 smoke, full은 nightly 수준)
+      steps {                                               // steps 시작
+        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {  // 기준을 못 채우면 UNSTABLE
+          bat "\"%PYTHON%\" scripts/signoff.py --level ${env.RUN_MODE == 'full' ? 'nightly' : 'smoke'}"  // 판정, out/signoff/signoff.md
+        }                                                   // catchError 끝
+      }                                                     // steps 끝
+    }                                                       // stage 끝
   }                                                         // stages 끝
 
   post {                                                    // 빌드가 끝난 뒤
     always {                                                // 결과와 상관없이 항상
       junit testResults: 'out/regress/*/junit.xml', allowEmptyResults: true  // JUnit 결과 수집 (Test Result 화면)
       archiveArtifacts allowEmptyArchive: true, fingerprint: false,  // 결과물 보관 (fingerprint 없음)
-        artifacts: 'out/ml/check.json, out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'  // 회귀 요약, 실행 로그, 빌드 로그, FPGA 보고서
+        artifacts: 'out/signoff/*, out/ml/check.json, out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'  // 회귀 요약, 실행 로그, 빌드 로그, FPGA 보고서
       // CD 결과물: fingerprint를 남겨 보드 이미지가 어느 빌드와 커밋에서 나왔는지 추적 가능
       archiveArtifacts allowEmptyArchive: true, fingerprint: true,  // 비트스트림과 XSA 보관 (fingerprint 남김)
         artifacts: 'out/fpga/system/design_1_wrapper.bit, out/fpga/system/design_1_wrapper.xsa'  // 보관할 파일

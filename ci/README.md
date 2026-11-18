@@ -31,7 +31,8 @@ git에도 들어가지 않습니다.
 | 매일 02:00 무렵 | full | 모든 TB의 모든 테스트 × seed 5개 + 기능 커버리지 HTML |
 | "Build with Parameters" | 둘 중 선택 | `MODE`, `SEEDS` 직접 지정 (smoke에서 `SEEDS`를 주면 계획 대신 예전 방식: unit 전부 + top smoke 묶음) |
 
-단계: Plan → Lint → Unit regression → Top regression → Plan coverage (계획을 쓴 smoke) → Coverage.
+단계: Plan → Lint → Unit regression → Top regression → Plan coverage (계획을 쓴 smoke) → Coverage → Sign-off
+(`verif/SIGNOFF.md` 기준, 결과는 `out/signoff/signoff.md`로 보관).
 
 계획은 `python scripts/ml_regress.py analyze --save-plan verif/regress_plan.json`으로 다시 만듭니다
 (테스트를 추가하거나 covergroup을 바꾼 뒤). 계획에 없는 테스트는 경고와 함께 `--seeds` 수로 돌기 때문에 빠지지 않습니다.

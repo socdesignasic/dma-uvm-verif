@@ -44,6 +44,7 @@
 | 5 | FPGA timing | `fpga.py ooc`로 DMA만 따로 배치·배선해 100MHz 타이밍을 봅니다 | WNS < 0 |
 | 6 | FPGA bitstream | `fpga.py system`으로 PS7과 BD를 넣어 .bit과 .xsa를 만듭니다 | 타이밍 위반이나 빌드 에러 |
 | 7 | Coverage | 이번 빌드의 실행으로 커버리지 리포트를 만듭니다 | – |
+| 8 | Sign-off | `signoff.py`로 `verif/SIGNOFF.md`의 기준 S1~S9를 판정합니다 (smoke는 smoke, full은 nightly 수준) | 기준 미달이면 UNSTABLE |
 
 - 6단계는 full 모드에서만 돕니다. `BITSTREAM=true`를 줘도 돕니다. 7단계는 두 모드 모두 돕니다.
 - 4a단계는 계획을 쓴 smoke에서만 돕니다. 계획은 교차 검증에서 100% 도달 확률 99.1%라, 드물게 UNSTABLE이 날 수 있습니다.

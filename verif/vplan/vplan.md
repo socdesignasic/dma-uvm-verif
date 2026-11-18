@@ -36,6 +36,8 @@ env: AXI4-Lite master (`axil_agent`, 레지스터 맵 `dma_reg_map.sv`, RAL 없�
 | AP_CTRL.done polling으로 완료 (읽으면 지워짐) | 대부분 | done 비트, GIE=0이면 인터럽트는 0 유지 | `cp_mode` | ✅ |
 | 인터럽트로 완료 (GIE/IER/ISR) | dma_irq_test, rand | ISR[0] 설정, ISR을 읽으면 IRQ 내려감 | `cp_mode` | ✅ |
 | 정확한 경계 크기 (1 beat, 16 = burst 하나 가득, 512 = 4KB 페이지 하나) × polling과 IRQ 완료 | dma_size_edge_test | 바이트 비교, SB_BEATS, IRQ 검사 | `x_size_mode` one/max_burst/page × 두 모드 | ✅ |
+| 기본 경로: 32 beat 작업 하나, backpressure 없음 (빠른 sanity) | dma_smoke_test | 바이트 비교, SB_BEATS, 완료 | `cp_beats` multi | ✅ |
+| 짧은 작업: 덜 찬 burst, 1 beat 작업 (1..20 beat, 30개) | dma_small_test | 바이트 비교, SB_BEATS, burst 검사 | `cp_beats` one/few, `cp_len` 1/2-15 | ✅ |
 | 연속 작업, idle로 복귀 | 모든 다중 작업 테스트 | 작업마다 AP_CTRL.idle | | ✅ |
 | transfer_byte = 0 / 8의 배수가 아님 | (테스트 안 함) | SW가 금지함. 0이면 RTL이 멈춤 | | ⬜ 사양 밖 |
 | auto_restart | (테스트 안 함) | | | ⬜ |
