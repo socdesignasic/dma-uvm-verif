@@ -16,7 +16,7 @@ ml_regress.py - 회귀 결과로 커버리지 모델을 학습해, 같은 커버
      매 단계 "놓칠 확률 합의 감소량 / 실행 시간"이 가장 큰 테스트에 실행 하나를 더합니다 (greedy).
      놓칠 확률의 합이 1 - target 아래가 되면 멈춥니다 (union bound라 보수적).
   4. 검증: seed를 테스트마다 반으로 나눠 절반으로 학습하고, 나머지 절반(학습에 안 쓴 seed)에서 계획대로
-     실행을 뽑아 100% 커버리지에 도달하는 비율을 셉니다. 같은 실행 수의 무작위 선택, CI smoke(36회),
+     실행을 뽑아 100% 커버리지에 도달하는 비율을 셉니다. 같은 실행 수의 무작위 선택, 기존 CI smoke(36회),
      nightly full(테스트당 seed 5개)과 비교합니다.
 
 결과: out/ml/runs.jsonl (데이터), out/ml/plan.json (계획), out/ml/report.json, out/ml/report.md

@@ -156,7 +156,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top)</span></div>
     <div class="stat bug" role="listitem"><span class="v">2 + 1</span><span class="k">RTL 버그 + 타이밍 위험</span></div>
     <div class="stat" role="listitem"><span class="v">123</span><span class="k">회귀 실행, fail 0 (xfail 12)</span></div>
-    <div class="stat" role="listitem"><span class="v">~9 min</span><span class="k">push당 CI smoke (36 tests)</span></div>
+    <div class="stat" role="listitem"><span class="v">~10 min</span><span class="k">push당 CI smoke (47회, coverage 100%)</span></div>
   </div>
   <div class="stack">
     <span class="chip">SystemVerilog / UVM</span><span class="chip">SVA</span><span class="chip">Vivado 2022.2 XSim</span>
@@ -305,13 +305,15 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 
 <section aria-labelledby="s-ci">
   <div class="sec-head"><span class="eyebrow">04 · CI/CD</span><h2 id="s-ci">Jenkins 회귀 파이프라인</h2></div>
-  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다.</p>
-  <div class="pipe" aria-label="빌드 #22 단계">
+  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다. smoke는 ML 회귀 계획(06 참고)대로 47회를 돌리고, 목표 bin 183개를 모두 채웠는지 확인합니다.</p>
+  <div class="pipe" aria-label="빌드 #25 단계">
     <div class="stage"><span class="s">Plan · Lint</span><span class="t">RTL + top 컴파일</span></div>
-    <div class="stage"><span class="s">Unit regression</span><span class="t">30 runs · 258s</span></div>
-    <div class="stage"><span class="s">Top regression</span><span class="t">6 runs · 55s</span></div>
-    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014 · 168s</span></div>
-    <div class="stage skip"><span class="s">Bitstream · Coverage</span><span class="t">nightly full only</span></div>
+    <div class="stage"><span class="s">Unit regression</span><span class="t">30 runs · 266s</span></div>
+    <div class="stage"><span class="s">Top regression</span><span class="t">17 runs · 71s</span></div>
+    <div class="stage"><span class="s">Plan coverage</span><span class="t">183/183 bin · 13s</span></div>
+    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014 · 185s</span></div>
+    <div class="stage"><span class="s">Coverage HTML</span><span class="t">6 TB · 100%</span></div>
+    <div class="stage skip"><span class="s">Bitstream</span><span class="t">nightly full only</span></div>
   </div>
   <div class="two">
     <div class="panel scroll">
@@ -319,23 +321,24 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
         <thead><tr><th></th><th>push (smoke)</th><th>nightly (full)</th></tr></thead>
         <tbody>
           <tr><td>트리거</td><td>SCM 폴링 5분</td><td>매일 02시</td></tr>
-          <tr><td>범위</td><td>unit 전부 + top 6종</td><td>전체 테스트</td></tr>
-          <tr><td>seed</td><td class="num">1</td><td class="num">5</td></tr>
-          <tr><td>추가 단계</td><td>OOC 타이밍</td><td>비트스트림·XSA, 커버리지 HTML</td></tr>
+          <tr><td>범위</td><td>ML 계획: unit 30 + top 17</td><td>전체 테스트</td></tr>
+          <tr><td>seed</td><td class="num">테스트별 1~4</td><td class="num">5</td></tr>
+          <tr><td>추가 단계</td><td>목표 bin 확인, OOC 타이밍, 커버리지 HTML</td><td>비트스트림·XSA, 커버리지 HTML</td></tr>
         </tbody>
       </table>
     </div>
     <div class="panel scroll">
       <table>
-        <thead><tr><th>빌드</th><th>결과</th><th>tests</th><th>시간</th></tr></thead>
+        <thead><tr><th>빌드</th><th>결과</th><th>runs</th><th>시간</th></tr></thead>
         <tbody>
+          <tr><td class="num">#25 · ML 계획</td><td><span class="pill ok">SUCCESS</span></td><td class="num">47 · fail 0</td><td class="num">10.3 min</td></tr>
+          <tr><td class="num">#24</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.2 min</td></tr>
+          <tr><td class="num">#23</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">10.7 min</td></tr>
           <tr><td class="num">#22</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.0 min</td></tr>
           <tr><td class="num">#21</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">8.8 min</td></tr>
-          <tr><td class="num">#20</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">10.5 min</td></tr>
-          <tr><td class="num">#19</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.6 min</td></tr>
         </tbody>
       </table>
-      <p class="note" style="margin-top:8px">skip 4는 <code>known_fail</code>로 등록된 버그 재현 테스트입니다.</p>
+      <p class="note" style="margin-top:8px">#24까지는 예전 smoke(unit 전부 + top 6종, 36회, top 커버리지 약 77%)입니다. 모든 빌드에서 xfail 4는 <code>known_fail</code>로 등록된 버그 재현 테스트입니다.</p>
     </div>
   </div>
 </section>
@@ -501,7 +504,7 @@ python scripts/regress.py --plan out/ml/plan.json</pre>
 
 <footer>
   <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
-  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #19–#22, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#25, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
 </footer>
 </div>
 
