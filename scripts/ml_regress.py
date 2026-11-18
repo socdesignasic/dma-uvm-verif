@@ -102,13 +102,17 @@ def extract_one(tb: str, test: str, seed: int) -> dict | None:  # 실행 하나�
     if not db.exists() or not rj.exists():                  # 없으면 (covergroup 없는 TB, 실행 실패)
         return None                                         # 건너뜀
     res = json.loads(rj.read_text(encoding="utf-8"))        # 판정과 시간
-    with tempfile.TemporaryDirectory() as td:               # 임시 보고서 디렉터리
-        subprocess.run(f'"{XCRG}" -report_format text -dir "{db}" -report_dir "{td}/r" -log "{td}/x.log"',  # 단일 DB 보고서
-                       shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # xcrg.bat는 성공해도 127
-        rep = Path(td) / "r" / "xcrg_func_cov_report.txt"   # 텍스트 보고서
-        if not rep.exists():                                # 보고서가 없으면
-            return None                                     # 건너뜀
-        bins = parse_report(rep.read_text(encoding="utf-8", errors="replace"))  # 파싱
+    bins = None                                             # bin 적중표
+    for _ in range(3):                                      # xcrg가 가끔 보고서 없이 끝나므로 (CI #25에서 47회 중 2회) 3번까지 시도
+        with tempfile.TemporaryDirectory() as td:           # 임시 보고서 디렉터리
+            subprocess.run(f'"{XCRG}" -report_format text -dir "{db}" -report_dir "{td}/r" -log "{td}/x.log"',  # 단일 DB 보고서
+                           shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # xcrg.bat는 성공해도 127
+            rep = Path(td) / "r" / "xcrg_func_cov_report.txt"  # 텍스트 보고서
+            if rep.exists():                                # 보고서가 있으면
+                bins = parse_report(rep.read_text(encoding="utf-8", errors="replace"))  # 파싱
+                break                                       # 성공
+    if bins is None:                                        # 3번 모두 실패하면
+        return None                                         # 건너뜀 (호출한 쪽이 실패 목록에 기록)
     return {"tb": tb, "test": test, "seed": seed, "verdict": res.get("verdict"),  # 실행 정보
             "duration_s": res.get("duration_s", 0), "bins": bins}  # 시간, bin 적중표
 
@@ -303,7 +307,9 @@ def check(a) -> int:                                        # check 명령
     for sp in a.summary:                                    # 회귀 summary.json마다
         work += [(r["tb"], r["test"], r["seed"]) for r in json.loads(Path(sp).read_text(encoding="utf-8"))["results"]]  # 실행 목록
     with ThreadPoolExecutor(max_workers=a.jobs) as ex:      # 병렬 xcrg
-        rows = [r for r in ex.map(lambda w: extract_one(*w), work) if r]  # 실행별 bin 적중표
+        got = list(ex.map(lambda w: extract_one(*w), work))  # 실행별 bin 적중표 (실패는 None)
+    rows = [r for r in got if r]                            # 읽은 실행
+    unread = [f"{tb}/{t}_{sd}" for (tb, t, sd), r in zip(work, got) if r is None]  # 커버리지를 못 읽은 실행
     hit = defaultdict(set)                                  # TB -> 친 bin
     for r in rows:                                          # 실행마다
         hit[r["tb"]].update(b for b, h in r["bins"].items() if h > 0)  # 친 bin 모음
@@ -317,10 +323,13 @@ def check(a) -> int:                                        # check 명령
               ("OK" if not miss else "MISSING " + " ".join(miss)))  # 못 친 bin
     tot_c = sum(r["covered"] for r in res.values())         # 전체 친 수
     tot_t = sum(r["target"] for r in res.values())          # 전체 목표 수
-    print(f"plan coverage: {tot_c}/{tot_t} bins ({len(rows)} runs) -> {'PASS' if ok else 'INCOMPLETE'}")  # 요약
+    if unread:                                              # 못 읽은 실행이 있으면 (그만큼 bin이 덜 잡혀 INCOMPLETE 쪽으로만 기움)
+        print(f"WARNING: coverage not read for {len(unread)} run(s): {' '.join(unread)}")  # 경고
+    print(f"plan coverage: {tot_c}/{tot_t} bins ({len(rows)}/{len(work)} runs read) -> {'PASS' if ok else 'INCOMPLETE'}")  # 요약
     OUT.mkdir(parents=True, exist_ok=True)                  # 결과 디렉터리
     (OUT / "check.json").write_text(json.dumps({"ok": ok, "covered": tot_c, "target": tot_t,  # 결과 저장 (CI 보관)
-                                                "runs": len(rows), "tbs": res}, indent=2), encoding="utf-8")  # TB별 상세
+                                                "runs": len(rows), "runs_total": len(work), "unread": unread,  # 읽은 수, 전체 수, 못 읽은 실행
+                                                "tbs": res}, indent=2), encoding="utf-8")  # TB별 상세
     return 0 if ok else 1                                   # 모두 채우면 0
 
 
