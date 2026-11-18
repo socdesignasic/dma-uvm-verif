@@ -79,16 +79,34 @@ python scripts/signoff.py --level release    # 출시 판정 (보드 시험 결�
   `dma_smoke_test`와 `dma_small_test`가 vplan에 없었기 때문입니다. 이 sign-off 검사를 만들면서 찾은
   누락이고, vplan에 두 행을 추가해 고쳤습니다.
 - #27은 Sign-off 단계가 처음 돈 빌드입니다. smoke 수준의 S1~S6, S9가 모두 PASS였습니다(S7, S8은 smoke에서 보지 않음).
-- nightly(full) 판정은 아직 기록이 없습니다. 첫 nightly 빌드 결과가 나오면 여기에 추가합니다.
+### Jenkins nightly(full) 추이
 
-### release 근거 (2026-11-18 기준)
+| 빌드 | 결과 | 회귀 (runs / fail / xfail) | 테스트 (pass / skip / fail) | 커버리지 | OOC WNS | 시스템 WNS / WHS | 비트스트림 | Sign-off | 시간 |
+|---|---|---|---|---|---|---|---|---|---|
+| #28 | SUCCESS | 205 / 0 / 20 | 185 / 20 / 0 | 6개 TB 100 | +0.014ns | +0.003ns / +0.011ns | `.bit` 4,045,676B, `.xsa` 679,404B | **nightly PASS** | 33.4분 |
+
+- #28은 2026-11-18에 수동으로 앞당겨 돌린 full 빌드입니다 (`MODE=full`, 타이머 nightly와 같은 단계).
+- xfail 20 = known_fail 4개 × seed 5개. 모두 BUG-001, BUG-002 재현입니다.
+
+### release 판정 (2026-11-18)
+
+**판정: PASS, 조건부 출시 (BUG-002 waiver).** `signoff.py --level release`로 #28의 결과 파일과 보드 시험 결과를
+함께 판정했습니다. 판정 대상 S1~S4, S6~S9가 모두 PASS입니다 (S5는 smoke 전용).
 
 | 기준 | 근거 | 결과 |
 |---|---|---|
-| S7 시스템 타이밍 | `fpga.py system` (xc7z020: WNS +0.003ns, WHS +0.011ns / xc7z010: WNS +0.005ns, WHS +0.008ns) | PASS |
+| S1 회귀 | #28: 205회, fail 0, 빌드 실패 0 | PASS |
+| S2 waiver | xfail 20 = 승인된 known_fail 4개 (BUG-001, BUG-002) | PASS |
+| S3 seed | 등록 테스트 41개 모두, 테스트당 seed 5개 | PASS |
+| S4 커버리지 | adder, adder8, fifo, fifo_d4, skid, top 모두 100 | PASS |
+| S6 OOC 타이밍 | WNS +0.014ns, WHS +0.125ns (xc7z020) | PASS |
+| S7 시스템 타이밍 | #28: WNS +0.003ns, WHS +0.011ns, 비트스트림·XSA 생성 (xc7z010 빌드: WNS +0.005ns, WHS +0.008ns) | PASS |
 | S8 보드 (JTAG) | `board.py`, Zybo Z7-10, 2026-11-16: 7/7 | PASS |
 | S8 보드 (ARM C) | `board_c.py`, Zybo Z7-10, 2026-11-17: 7/7, UART와 mailbox 일치 (2회) | PASS |
-| S3 seed 5개 이상 | 첫 nightly 결과 대기 | 미정 |
+| S9 vplan | 등록 테스트 17종 모두 계획에 있음, ❌ 행 2개 모두 버그 ID 있음 | PASS |
 
-**release 판정: 보류.** S3(seed 5개 full 회귀)와 nightly 기준의 S4를 첫 nightly 결과로 확인한 뒤 판정합니다.
-BUG-002가 open이라, 출시하더라도 출시 노트에 "AWREADY를 늦추는 interconnect에서는 사용 금지"를 적어야 합니다.
+- 보드 시험은 #28보다 먼저 했지만, `HW/` RTL은 첫 커밋(2026-11-14) 뒤로 바뀌지 않았으므로 같은 설계에 대한 근거로 씁니다.
+- **출시 노트에 적을 조건:**
+  - BUG-002 (open): AWREADY를 늦추는 interconnect나 slave에 연결하면 hang 위험이 있습니다. 현재 확인된 구성은 Zynq HP0 직결뿐입니다.
+  - BUG-001 (won't fix): 리셋 해제 직후 같은 사이클에 입력을 넣지 않습니다.
+  - NOTE-001: 타이밍 여유가 +0.003ns이므로, RTL이나 구현 설정을 바꾸면 S6·S7을 다시 확인합니다.

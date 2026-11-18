@@ -331,6 +331,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <table>
         <thead><tr><th>빌드</th><th>결과</th><th>runs</th><th>시간</th></tr></thead>
         <tbody>
+          <tr><td class="num">#28 · full</td><td><span class="pill ok">SUCCESS</span></td><td class="num">205 · fail 0</td><td class="num">33.4 min</td></tr>
           <tr><td class="num">#27 · ML 계획</td><td><span class="pill ok">SUCCESS</span></td><td class="num">47 · fail 0</td><td class="num">9.3 min</td></tr>
           <tr><td class="num">#25 · ML 계획</td><td><span class="pill ok">SUCCESS</span></td><td class="num">47 · fail 0</td><td class="num">10.3 min</td></tr>
           <tr><td class="num">#24</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.2 min</td></tr>
@@ -364,7 +365,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <ul class="clean" style="margin-top:12px">
       <li><b>waiver = known_fail 승인</b>: RTL 버그로 확정 → BUGS.md 기록 → RTL 담당자가 상태 결정(open / won't fix) → 재현 테스트를 <code>known_fail</code>로 등록. RTL이 고쳐지면 XPASS가 되어 빌드가 실패하므로, 수정이 조용히 지나가지 않습니다.</li>
       <li><b>만들자마자 찾은 것</b>: 판정을 처음 돌리자 S9가 <code>dma_smoke_test</code>와 <code>dma_small_test</code>가 vplan에 빠져 있는 것을 잡았습니다. 앞의 것은 unit 표의 같은 단어("smoke")에 가려져 있었습니다.</li>
-      <li><b>release 판정</b>: 보드 시험 2종과 시스템 타이밍은 근거가 있고, seed 5개 nightly 결과로 마무리합니다. BUG-002가 open이라 출시 노트에 "AWREADY를 늦추는 interconnect에서는 사용 금지"를 적는 조건부 판정입니다.</li>
+      <li><b>release 판정: PASS, 조건부 출시</b>: full 빌드 #28(205회 fail 0, 6개 TB 커버리지 100, 시스템 WNS +0.003ns, 비트스트림)과 보드 시험 2종을 함께 판정해 S1~S4, S6~S9가 모두 PASS였습니다. BUG-002가 open이라 출시 노트에 "AWREADY를 늦추는 interconnect에서는 사용 금지"를 적는 조건부 판정입니다.</li>
     </ul>
   </div>
 </section>
@@ -530,7 +531,7 @@ python scripts/regress.py --plan out/ml/plan.json</pre>
 
 <footer>
   <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
-  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#27, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#28, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
 </footer>
 </div>
 
