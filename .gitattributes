@@ -1,0 +1,2 @@
+# 시뮬레이터 filelist(.f)는 Fortran/Forth 코드가 아님: GitHub 언어 통계에서 제외
+*.f linguist-detectable=false
