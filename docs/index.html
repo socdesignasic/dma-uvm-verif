@@ -410,11 +410,12 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 python scripts/ml_regress.py analyze --target 0.95
 python scripts/regress.py --plan out/ml/plan.json</pre>
     <ul class="clean" style="margin-top:12px">
-      <li><b>실제 실행으로 확인</b>: 전체 데이터로 학습한 47회 계획을 실제로 돌려 6개 TB 모두 100% (203/203 bin), fail 0, xfail 4 (BUG-001·BUG-002 재현은 그대로 유지).</li>
+      <li><b>실제 실행으로 확인</b>: 전체 데이터로 학습한 47회 계획을 실제로 돌려 6개 TB 모두 100% (183/183 bin), fail 0, xfail 4 (BUG-001·BUG-002 재현은 그대로 유지).</li>
       <li><b>모델이 찾은 것</b>: unit TB 5개는 테스트당 seed 1개로 이미 포화. 추가 seed는 모두 top에 배정됨 (<code>dma_rand</code> ×4, <code>dma_irq</code> ×3, <code>dma_size_edge</code> ×2).</li>
       <li><b>기존 smoke의 빈틈</b>: 고유 bin 5개를 가진 <code>dma_size_edge_test</code>가 smoke 목록에 없어 top 커버리지가 77%에 머묾.</li>
+      <li><b>CI에 적용</b>: Jenkins smoke가 이 계획(<code>verif/regress_plan.json</code>)대로 돌고, 끝나면 목표 bin 183개를 모두 채웠는지 확인해 못 채우면 UNSTABLE로 표시합니다. 로컬 확인: 47회, fail 0, 183/183 bin.</li>
     </ul>
-    <p class="note" style="margin-top:10px">딥러닝이 아니라 확률 모델입니다. 커버리지 공간이 203 bin으로 작아서 핵심은 절대 시간보다 비율입니다: 같은 실행 수라도 무작위 선택보다 100% 도달 확률이 2.3배 높습니다. 같은 방법은 bin이 많은 큰 설계에서 효과가 더 커집니다.</p>
+    <p class="note" style="margin-top:10px">딥러닝이 아니라 확률 모델입니다. 커버리지 공간이 183 bin으로 작아서 핵심은 절대 시간보다 비율입니다: 같은 실행 수라도 무작위 선택보다 100% 도달 확률이 2.3배 높습니다. 같은 방법은 bin이 많은 큰 설계에서 효과가 더 커집니다.</p>
   </div>
 </section>
 

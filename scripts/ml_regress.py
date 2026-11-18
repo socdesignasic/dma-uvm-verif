@@ -4,7 +4,9 @@ ml_regress.py - 회귀 결과로 커버리지 모델을 학습해, 같은 커버
 
   python scripts/ml_regress.py extract --from out/regress/ml_data/summary.json   # 실행마다 bin 적중표 추출
   python scripts/ml_regress.py analyze                                         # 학습, 교차 검증, 계획 생성
-  python scripts/regress.py --plan out/ml/plan.json                            # 만든 계획으로 회귀
+  python scripts/ml_regress.py analyze --save-plan verif/regress_plan.json    # 계획을 저장소에 저장 (CI smoke가 사용)
+  python scripts/regress.py --plan verif/regress_plan.json                     # 만든 계획으로 회귀
+  python scripts/ml_regress.py check --summary out/regress/unit/summary.json out/regress/top/summary.json  # 목표 bin 확인
 
 방법
   1. 데이터: 실행(tb, test, seed)마다 기능 커버리지 DB를 xcrg로 풀어, 어떤 bin을 몇 번 쳤는지 기록합니다.
@@ -264,8 +266,11 @@ def analyze(a) -> int:                                      # analyze 명령
     n_final = sum(sum(v.values()) for v in final.values())  # 최종 계획 실행 수
     plan_doc = {"generated": time.strftime("%Y-%m-%d %H:%M:%S"), "target": a.target,  # 생성 시각, 목표
                 "model": f"Beta-Bernoulli (a={PRIOR_A}, b={PRIOR_B}), greedy expected-coverage per second",  # 모델 설명
-                "data_runs": len(rows), "runs": n_final, "plan": final}  # 데이터 수, 실행 수, 계획
+                "data_runs": len(rows), "runs": n_final, "plan": final,  # 데이터 수, 실행 수, 계획
+                "target_bins": {tb: data[tb][1] for tb in tbs}}  # TB별 목표 bin (check 명령이 씀)
     (OUT / "plan.json").write_text(json.dumps(plan_doc, indent=2), encoding="utf-8")  # 계획 저장
+    if a.save_plan:                                         # 저장소에 둘 위치가 있으면
+        Path(a.save_plan).write_text(json.dumps(plan_doc, indent=2) + "\n", encoding="utf-8")  # 같은 내용 저장 (CI가 읽음)
     report = {"data_runs": len(rows), "tbs": {tb: {"bins": len(data[tb][2]), "target_bins": len(data[tb][1]),  # TB별 bin 수
                                                    "runs": len(data[tb][0])} for tb in tbs},  # TB별 실행 수
               "splits": a.splits, "trials": a.trials, "target": a.target, "cv": cv,  # 검증 설정과 결과
@@ -288,6 +293,37 @@ def analyze(a) -> int:                                      # analyze 명령
     return 0                                                # 성공
 
 
+# --------------------------------------------------------------------------- #
+# 4. 확인 (CI): 계획대로 돈 회귀가 목표 bin을 모두 채웠는지
+# --------------------------------------------------------------------------- #
+def check(a) -> int:                                        # check 명령
+    doc = json.loads(Path(a.plan).read_text(encoding="utf-8"))  # 계획 (목표 bin 포함)
+    target = {tb: set(b) for tb, b in doc.get("target_bins", {}).items()}  # TB -> 목표 bin
+    work = []                                               # 확인할 실행
+    for sp in a.summary:                                    # 회귀 summary.json마다
+        work += [(r["tb"], r["test"], r["seed"]) for r in json.loads(Path(sp).read_text(encoding="utf-8"))["results"]]  # 실행 목록
+    with ThreadPoolExecutor(max_workers=a.jobs) as ex:      # 병렬 xcrg
+        rows = [r for r in ex.map(lambda w: extract_one(*w), work) if r]  # 실행별 bin 적중표
+    hit = defaultdict(set)                                  # TB -> 친 bin
+    for r in rows:                                          # 실행마다
+        hit[r["tb"]].update(b for b, h in r["bins"].items() if h > 0)  # 친 bin 모음
+    res, ok = {}, True                                      # 결과, 전체 통과 여부
+    for tb in sorted(set(hit) & set(target)):               # 이번에 돌았고 목표가 있는 TB마다
+        miss = sorted(target[tb] - hit[tb])                 # 못 친 목표 bin
+        res[tb] = {"covered": len(target[tb]) - len(miss), "target": len(target[tb]),  # 친 수, 목표 수
+                   "pct": round(100 * (1 - len(miss) / len(target[tb])), 2), "missing": miss}  # 비율, 못 친 bin
+        ok &= not miss                                      # 하나라도 못 치면 실패
+        print(f"{tb:8s} {res[tb]['covered']:3d}/{res[tb]['target']:<3d} {res[tb]['pct']:6.2f}%  " +  # TB별 한 줄
+              ("OK" if not miss else "MISSING " + " ".join(miss)))  # 못 친 bin
+    tot_c = sum(r["covered"] for r in res.values())         # 전체 친 수
+    tot_t = sum(r["target"] for r in res.values())          # 전체 목표 수
+    print(f"plan coverage: {tot_c}/{tot_t} bins ({len(rows)} runs) -> {'PASS' if ok else 'INCOMPLETE'}")  # 요약
+    OUT.mkdir(parents=True, exist_ok=True)                  # 결과 디렉터리
+    (OUT / "check.json").write_text(json.dumps({"ok": ok, "covered": tot_c, "target": tot_t,  # 결과 저장 (CI 보관)
+                                                "runs": len(rows), "tbs": res}, indent=2), encoding="utf-8")  # TB별 상세
+    return 0 if ok else 1                                   # 모두 채우면 0
+
+
 def main() -> int:                                          # 진입점
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)  # 인자 파서
     sub = ap.add_subparsers(dest="cmd", required=True)      # 하위 명령
@@ -300,8 +336,13 @@ def main() -> int:                                          # 진입점
     p.add_argument("--trials", type=int, default=200)       # 분할마다 추출 횟수
     p.add_argument("--rare", type=float, default=0.3)       # 드문 bin 기준
     p.add_argument("--seed", type=int, default=1)           # 난수 seed
+    p.add_argument("--save-plan", help="계획을 이 경로에도 저장 (예: verif/regress_plan.json, CI가 사용)")  # 저장소용 사본
+    p = sub.add_parser("check", help="회귀 결과가 계획의 목표 bin을 모두 채웠는지 확인 (CI)")  # check
+    p.add_argument("--plan", default=str(ROOT / "verif" / "regress_plan.json"))  # 계획 파일
+    p.add_argument("--summary", nargs="+", required=True, help="regress.py summary.json (여러 개 가능)")  # 회귀 결과
+    p.add_argument("--jobs", type=int, default=6)           # xcrg 병렬 수
     a = ap.parse_args()                                     # 인자 파싱
-    return extract(a) if a.cmd == "extract" else analyze(a)  # 명령 실행
+    return {"extract": extract, "analyze": analyze, "check": check}[a.cmd](a)  # 명령 실행
 
 
 if __name__ == "__main__":                                  # 스크립트로 실행될 때만

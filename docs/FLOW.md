@@ -36,15 +36,17 @@
 
 | 순서 | 단계 | 하는 일 | 실패 기준 |
 |---|---|---|---|
-| 1 | Plan | 모드(smoke 또는 full)와 seed 수를 정합니다 | – |
+| 1 | Plan | 모드(smoke 또는 full)와 seed 수를 정합니다. smoke는 ML 회귀 계획(`verif/regress_plan.json`)을 씁니다 | – |
 | 2 | Lint | 모든 TB를 컴파일하고 elaborate합니다 (`sim.py lint`) | 컴파일 에러 |
 | 3 | Unit regression | 블록 단위 TB 5종을 병렬로 돌립니다 (smoke 30회) | FAIL 또는 XPASS |
-| 4 | Top regression | DMA 전체 TB를 돌립니다 (smoke 6회) | FAIL 또는 XPASS |
+| 4 | Top regression | DMA 전체 TB를 돌립니다 (smoke 17회, 계획대로) | FAIL 또는 XPASS |
+| 4a | Plan coverage | smoke가 계획의 목표 bin(183개)을 모두 채웠는지 확인합니다 (`ml_regress.py check`) | 못 채우면 UNSTABLE |
 | 5 | FPGA timing | `fpga.py ooc`로 DMA만 따로 배치·배선해 100MHz 타이밍을 봅니다 | WNS < 0 |
 | 6 | FPGA bitstream | `fpga.py system`으로 PS7과 BD를 넣어 .bit과 .xsa를 만듭니다 | 타이밍 위반이나 빌드 에러 |
-| 7 | Coverage | 커버리지를 수집하고 리포트를 만듭니다 | – |
+| 7 | Coverage | 이번 빌드의 실행으로 커버리지 리포트를 만듭니다 | – |
 
-- 6단계와 7단계는 full 모드에서만 돕니다. 6단계는 `BITSTREAM=true`를 줘도 돕니다.
+- 6단계는 full 모드에서만 돕니다. `BITSTREAM=true`를 줘도 돕니다. 7단계는 두 모드 모두 돕니다.
+- 4a단계는 계획을 쓴 smoke에서만 돕니다. 계획은 교차 검증에서 100% 도달 확률 99.1%라, 드물게 UNSTABLE이 날 수 있습니다.
 - XFAIL(알려진 버그 재현)은 skip으로 집계되므로 빌드가 계속 초록으로 유지됩니다.
 - RTL이 고쳐져서 XFAIL 테스트가 통과하면 XPASS가 되고, 빌드가 실패합니다. 이것이 `known_fail` 등록을 지우라는
   신호입니다.
