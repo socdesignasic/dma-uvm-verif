@@ -65,18 +65,20 @@ python scripts/signoff.py --level release    # 출시 판정 (보드 시험 결�
 
 ### Jenkins smoke 추이
 
-| 빌드 | smoke 방식 | 결과 | 테스트 (pass / skip(XFAIL) / fail) | OOC WNS | 계획 목표 bin | 시간 |
-|---|---|---|---|---|---|---|
-| #26 | ML 계획 (47회) | SUCCESS | 43 / 4 / 0 | +0.014ns | 183/183 | 9.5분 |
-| #25 | ML 계획 (47회) | SUCCESS | 43 / 4 / 0 | +0.014ns | 183/183 | 10.3분 |
-| #24 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | 9.2분 |
-| #23 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | 10.7분 |
-| #22 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | 9.0분 |
-| #21 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | 8.8분 |
+| 빌드 | smoke 방식 | 결과 | 테스트 (pass / skip(XFAIL) / fail) | OOC WNS | 계획 목표 bin | Sign-off | 시간 |
+|---|---|---|---|---|---|---|---|
+| #27 | ML 계획 (47회) | SUCCESS | 43 / 4 / 0 | +0.014ns | 183/183 | **smoke PASS** | 9.3분 |
+| #26 | ML 계획 (47회) | SUCCESS | 43 / 4 / 0 | +0.014ns | 183/183 | (단계 없음) | 9.5분 |
+| #25 | ML 계획 (47회) | SUCCESS | 43 / 4 / 0 | +0.014ns | 183/183 | (단계 없음) | 10.3분 |
+| #24 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | – | 9.2분 |
+| #23 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | – | 10.7분 |
+| #22 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | – | 9.0분 |
+| #21 | 예전 smoke (36회) | SUCCESS | 32 / 4 / 0 | +0.014ns | – | – | 8.8분 |
 
 - #26의 결과 파일로 `signoff.py --level smoke`를 돌리면 S1~S6이 PASS였습니다. S9만 FAIL이었는데,
   `dma_smoke_test`와 `dma_small_test`가 vplan에 없었기 때문입니다. 이 sign-off 검사를 만들면서 찾은
   누락이고, vplan에 두 행을 추가해 고쳤습니다.
+- #27은 Sign-off 단계가 처음 돈 빌드입니다. smoke 수준의 S1~S6, S9가 모두 PASS였습니다(S7, S8은 smoke에서 보지 않음).
 - nightly(full) 판정은 아직 기록이 없습니다. 첫 nightly 빌드 결과가 나오면 여기에 추가합니다.
 
 ### release 근거 (2026-11-18 기준)

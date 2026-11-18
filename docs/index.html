@@ -151,7 +151,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 <header class="hero">
   <div class="eyebrow">Verification Portfolio · 2026.11</div>
   <h1>AXI DMA IP UVM 검증 환경과<br>AI Agent 기반 검증 자동화</h1>
-  <p class="lead">AXI4-Lite 레지스터, AXI4 read/write DMA, AXI-Stream 연산기로 이루어진 DMA IP를 Vivado XSim에서 UVM으로 검증했습니다. 검증 루프는 LLM Agent가 MCP로 시뮬레이터를 직접 다루도록 자동화했고, 모든 push는 Jenkins 회귀로 확인합니다. 회귀 범위는 실행 820회로 학습한 커버리지 모델로 정해, 같은 커버리지를 실행 77% 적게 닫습니다. 이 과정에서 RTL 기능 버그 2건과 타이밍 위험 1건을 찾았고, Zynq 보드의 실제 DDR에서 1MB 전송까지 JTAG 시험과 ARM bare-metal C 프로그램 양쪽으로 동작을 확인했습니다.</p>
+  <p class="lead">AXI4-Lite 레지스터, AXI4 read/write DMA, AXI-Stream 연산기로 이루어진 DMA IP를 Vivado XSim에서 UVM으로 검증했습니다. 검증 루프는 LLM Agent가 MCP로 시뮬레이터를 직접 다루도록 자동화했고, 모든 push는 Jenkins 회귀로 확인합니다. 회귀 범위는 실행 820회로 학습한 커버리지 모델로 정해, 같은 커버리지를 실행 77% 적게 닫습니다. "검증이 끝났다"는 결과 파일로 자동 판정하는 sign-off 기준 9개로 정합니다. 이 과정에서 RTL 기능 버그 2건과 타이밍 위험 1건을 찾았고, Zynq 보드의 실제 DDR에서 1MB 전송까지 JTAG 시험과 ARM bare-metal C 프로그램 양쪽으로 동작을 확인했습니다.</p>
   <div class="stats" role="list">
     <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top)</span></div>
     <div class="stat bug" role="listitem"><span class="v">2 + 1</span><span class="k">RTL 버그 + 타이밍 위험</span></div>
@@ -304,7 +304,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 </section>
 
 <section aria-labelledby="s-ci">
-  <div class="sec-head"><span class="eyebrow">04 · CI/CD</span><h2 id="s-ci">Jenkins 회귀 파이프라인</h2></div>
+  <div class="sec-head"><span class="eyebrow">04 · CI/CD</span><h2 id="s-ci">Jenkins 회귀 파이프라인과 Sign-off</h2></div>
   <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다. smoke는 ML 회귀 계획(06 참고)대로 47회를 돌리고, 목표 bin 183개를 모두 채웠는지 확인합니다.</p>
   <div class="pipe" aria-label="빌드 #25 단계">
     <div class="stage"><span class="s">Plan · Lint</span><span class="t">RTL + top 컴파일</span></div>
@@ -331,6 +331,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <table>
         <thead><tr><th>빌드</th><th>결과</th><th>runs</th><th>시간</th></tr></thead>
         <tbody>
+          <tr><td class="num">#27 · ML 계획</td><td><span class="pill ok">SUCCESS</span></td><td class="num">47 · fail 0</td><td class="num">9.3 min</td></tr>
           <tr><td class="num">#25 · ML 계획</td><td><span class="pill ok">SUCCESS</span></td><td class="num">47 · fail 0</td><td class="num">10.3 min</td></tr>
           <tr><td class="num">#24</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">9.2 min</td></tr>
           <tr><td class="num">#23</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">10.7 min</td></tr>
@@ -340,6 +341,31 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       </table>
       <p class="note" style="margin-top:8px">#24까지는 예전 smoke(unit 전부 + top 6종, 36회, top 커버리지 약 77%)입니다. 모든 빌드에서 xfail 4는 <code>known_fail</code>로 등록된 버그 재현 테스트입니다.</p>
     </div>
+  </div>
+  <div class="panel">
+    <h3>Sign-off 기준: 9개 기준을 결과 파일로 자동 판정</h3>
+    <p style="margin-top:8px">"검증이 끝났다"를 사람의 감이 아니라 기준으로 정했습니다. <code>signoff.py</code>가 회귀, 커버리지, 타이밍, 보드 결과 파일을 읽어 판정하고, Jenkins는 모든 빌드 끝에 이 판정을 남깁니다. 기준을 못 채우면 빌드가 UNSTABLE이 됩니다. 처음 적용한 빌드 #27에서 smoke sign-off PASS(S1~S6, S9).</p>
+    <div class="scroll" style="margin-top:12px">
+      <table>
+        <thead><tr><th>ID</th><th>기준</th><th>smoke</th><th>nightly</th><th>release</th></tr></thead>
+        <tbody>
+          <tr><td class="num">S1</td><td>회귀 fail 0 (XPASS, 결과 없음 포함), 빌드 실패 0</td><td>●</td><td>●</td><td>●</td></tr>
+          <tr><td class="num">S2</td><td>예상된 실패는 승인된 <code>known_fail</code>만, 각각 BUGS.md에 ID와 상태</td><td>●</td><td>●</td><td>●</td></tr>
+          <tr><td class="num">S3</td><td>모든 테스트 실행, seed 1개(smoke) / 5개 이상</td><td>●</td><td>●</td><td>●</td></tr>
+          <tr><td class="num">S4</td><td>기능 커버리지 100% (모든 TB)</td><td>●</td><td>●</td><td>●</td></tr>
+          <tr><td class="num">S5</td><td>ML 계획의 목표 bin 183개 전부</td><td>●</td><td></td><td></td></tr>
+          <tr><td class="num">S6</td><td>DMA 단독 100MHz 타이밍 WNS·WHS ≥ 0</td><td>●</td><td>●</td><td>●</td></tr>
+          <tr><td class="num">S7</td><td>시스템 빌드 타이밍, 비트스트림·XSA</td><td></td><td>●</td><td>●</td></tr>
+          <tr><td class="num">S8</td><td>실보드 시험 PASS (JTAG, ARM C)</td><td></td><td></td><td>●</td></tr>
+          <tr><td class="num">S9</td><td>모든 테스트가 vplan에 있고, 실패 행은 버그 ID를 가짐</td><td>●</td><td>●</td><td>●</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="clean" style="margin-top:12px">
+      <li><b>waiver = known_fail 승인</b>: RTL 버그로 확정 → BUGS.md 기록 → RTL 담당자가 상태 결정(open / won't fix) → 재현 테스트를 <code>known_fail</code>로 등록. RTL이 고쳐지면 XPASS가 되어 빌드가 실패하므로, 수정이 조용히 지나가지 않습니다.</li>
+      <li><b>만들자마자 찾은 것</b>: 판정을 처음 돌리자 S9가 <code>dma_smoke_test</code>와 <code>dma_small_test</code>가 vplan에 빠져 있는 것을 잡았습니다. 앞의 것은 unit 표의 같은 단어("smoke")에 가려져 있었습니다.</li>
+      <li><b>release 판정</b>: 보드 시험 2종과 시스템 타이밍은 근거가 있고, seed 5개 nightly 결과로 마무리합니다. BUG-002가 open이라 출시 노트에 "AWREADY를 늦추는 interconnect에서는 사용 금지"를 적는 조건부 판정입니다.</li>
+    </ul>
   </div>
 </section>
 
@@ -504,7 +530,7 @@ python scripts/regress.py --plan out/ml/plan.json</pre>
 
 <footer>
   <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
-  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#25, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#27, 로컬 회귀 <code>--suite all --seeds 3</code>, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
 </footer>
 </div>
 

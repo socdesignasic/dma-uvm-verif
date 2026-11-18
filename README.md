@@ -19,8 +19,8 @@ Vivado 2022.2 XSim에서 검증하는 UVM 환경, CI/CD, 에이전트 도구입�
 
 | 경로 | 내용 |
 |---|---|
-| `verif/` | UVM 테스트벤치: agent, env, sequence, 테스트, TB top, 테스트 목록(`sim_cfg.json`), vplan, 버그 목록 |
-| `scripts/` | `sim.py` (lint/실행/커버리지), `regress.py` (병렬 회귀, `--plan`), `ml_regress.py` (커버리지 모델 학습과 회귀 계획), `fpga.py` (OOC 타이밍, 비트스트림 + XSA), `board.py` / `board_c.py` (보드 시험) |
+| `verif/` | UVM 테스트벤치: agent, env, sequence, 테스트, TB top, 테스트 목록(`sim_cfg.json`), vplan, 버그 목록, sign-off 기준(`SIGNOFF.md`) |
+| `scripts/` | `sim.py` (lint/실행/커버리지), `regress.py` (병렬 회귀, `--plan`), `ml_regress.py` (커버리지 모델 학습과 회귀 계획), `signoff.py` (sign-off 판정), `fpga.py` (OOC 타이밍, 비트스트림 + XSA), `board.py` / `board_c.py` (보드 시험) |
 | `fw/dma_board_test/` | Cortex-A9 bare-metal C 보드 시험 프로그램 (Vitis standalone BSP) |
 | `Jenkinsfile`, `ci/` | 로컬 Jenkins (Configuration as Code), Vivado 블록 디자인과 IP 패키징, xsdb 보드 시험(`ci/vivado/board_*.tcl`), Vitis 빌드(`ci/vitis/`) 스크립트 |
 | `mcp/` | 시뮬레이션 흐름을 에이전트에 제공하는 MCP 서버 |
@@ -34,6 +34,25 @@ python scripts/sim.py list
 python scripts/sim.py run --tb top --test dma_smoke_test --seed 1
 python scripts/regress.py --suite all --seeds 2 --jobs 6
 python scripts/sim.py cov-report --tb top
+```
+
+## Sign-off
+
+"검증이 끝났다"는 `verif/SIGNOFF.md`의 기준 S1~S9로 정하고, `scripts/signoff.py`가 결과 파일로 판정합니다.
+Jenkins는 모든 빌드 끝에 Sign-off 단계를 돌려 `out/signoff/signoff.md`를 남기고, 기준을 못 채우면 UNSTABLE로 표시합니다.
+
+| 수준 | 언제 | 보는 기준 |
+|---|---|---|
+| `smoke` | push마다 | 회귀 fail 0, XFAIL은 승인된 known_fail만, 모든 테스트 실행, 커버리지 100%, ML 계획 목표 bin 전부, OOC 타이밍, vplan 완결성 |
+| `nightly` | 매일 밤 | smoke 기준(ML 계획 제외) + 테스트당 seed 5개 + 시스템 빌드 타이밍과 비트스트림 |
+| `release` | 출시 판정 | nightly + 실보드 시험(JTAG, ARM C) |
+
+- **waiver = known_fail 승인:** RTL 버그 확정 → `BUGS.md` 기록 → RTL 담당자가 상태 결정 → 재현 테스트를 `known_fail`로 등록.
+  RTL이 고쳐지면 XPASS로 빌드가 실패해 수정이 조용히 지나가지 않습니다.
+- 판정을 처음 돌렸을 때 S9가 vplan에 빠진 테스트 2개(`dma_smoke_test`, `dma_small_test`)를 찾아 고쳤습니다.
+
+```bash
+python scripts/signoff.py --level smoke      # nightly, release
 ```
 
 ## ML 회귀 최적화
