@@ -1,11 +1,14 @@
 // -----------------------------------------------------------------------------
 // dma-uvm CI : Vivado 2022.2 XSim에서 dma_ip UVM 회귀
 //
-//   main에 push (SCM poll) : smoke = ML 회귀 계획(verif/regress_plan.json, 47회)대로 unit + top 회귀,
+//   push (SCM poll)        : smoke = ML 회귀 계획(verif/regress_plan.json, 47회)대로 unit + top 회귀,
 //                            계획의 목표 bin을 모두 채웠는지 확인 (못 채우면 UNSTABLE)
 //                            + FPGA 단독(out-of-context) 합성/배치배선 타이밍 확인 (100 MHz)
 //   매일 타이머 (02:00)    : full  = 모든 TB의 모든 테스트, seed 5개, 커버리지 보고서
 //                            + FPGA 시스템 빌드: 비트스트림 + XSA (CD 결과물)
+//   main은 잡 dma-uvm(smoke + 매일 full), 다른 브랜치는 잡 dma-uvm-branches(smoke만, ci/jenkins.yaml).
+//   단계별 설명과 실패 기준은 docs/FLOW.md 2절. Lint 단계 앞부분은 scripts/gate.py static.
+//   결과는 GitHub 커밋 상태(dma-uvm/<모드>)로도 올림 (scripts/ci_status.py).
 //   모든 빌드 끝에 Sign-off 단계가 verif/SIGNOFF.md 기준을 판정 (smoke / nightly 수준, 못 채우면 UNSTABLE)
 //   수동 "Build with Parameters"로 둘 중 하나를 강제하거나, seed 수를 바꾸거나, 비트스트림을 요청할 수 있음.
 //
@@ -13,7 +16,6 @@
 // (ci/jenkins.yaml)에서 옴. 모든 단계는 개발자가 손으로 돌리는 것과 같은 스크립트를
 // 부르므로, CI 실패는 출력된 `rerun` 명령으로 로컬에서 재현됨.
 // -----------------------------------------------------------------------------
-def TOP_SMOKE = 'dma_reg_reset_test dma_reg_bitbash_test dma_smoke_test dma_small_test dma_irq_test dma_aw_backpressure_test'  // 계획 없이 smoke를 돌릴 때(SEEDS 지정)의 top 테스트
 def PLAN      = 'verif/regress_plan.json'                // smoke 회귀 계획 (scripts/ml_regress.py analyze --save-plan)
 def COV_TBS   = ['top', 'adder8', 'adder', 'fifo', 'fifo_d4', 'skid']  // 커버리지 보고서를 만들 TB
 
@@ -50,11 +52,15 @@ pipeline {                                                  // declarative pipel
         }                                                   // script 끝
         bat 'if exist out rmdir /s /q out'                  // 이전 결과 삭제
         bat '"%PYTHON%" --version && "%PYTHON%" scripts/sim.py list'  // Python 버전과 TB 목록 출력
+        script {                                            // 계획 없이 도는 smoke의 top 테스트 (verif/plan.toml [smoke] 한 곳에서 읽음)
+          env.TOP_SMOKE = bat(returnStdout: true, script: '@"%PYTHON%" scripts/plan_check.py --smoke-tests').trim()
+        }
       }                                                     // steps 끝
     }                                                       // stage 끝
 
     stage('Lint') {                                         // 컴파일 확인
       steps {                                               // steps 시작
+        bat '"%PYTHON%" scripts/gate.py static'             // hook 테스트, 스크립트 테스트, 검사 목록 기준선, 검증 계획, 문서 (시뮬레이션 없음)
         bat '"%PYTHON%" scripts/sim.py lint --tb rtl'       // RTL만 컴파일
         bat '"%PYTHON%" scripts/sim.py lint --tb top'       // top TB 컴파일
       }                                                     // steps 끝
@@ -72,7 +78,7 @@ pipeline {                                                  // declarative pipel
     stage('Top regression') {                               // top 회귀
       steps {                                               // steps 시작
         script {                                            // Groovy 코드 블록
-          def subset = (env.RUN_MODE == 'smoke' && env.USE_PLAN != 'true') ? "--tests ${TOP_SMOKE}" : ''  // 계획 없는 smoke면 정해진 테스트만
+          def subset = (env.RUN_MODE == 'smoke' && env.USE_PLAN != 'true') ? "--tests ${env.TOP_SMOKE}" : ''  // 계획 없는 smoke면 정해진 테스트만 (verif/plan.toml [smoke])
           catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {  // 실패해도 다음 stage 계속
             bat "\"%PYTHON%\" scripts/regress.py --suite top --seeds %N_SEEDS% --jobs %JOBS% --name top ${subset} %PLAN_ARG%"  // top 회귀 실행 (smoke면 계획대로)
           }                                                 // catchError 끝
@@ -111,7 +117,7 @@ pipeline {                                                  // declarative pipel
         script {                                            // Groovy 코드 블록
           COV_TBS.each { tb ->                              // TB마다
             catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {  // 실패하면 UNSTABLE로 표시
-              bat "\"%PYTHON%\" scripts/sim.py cov-report --tb ${tb}"  // 커버리지 보고서 생성
+              bat "\"%PYTHON%\" scripts/sim.py cov-report --tb ${tb} --regress unit top"  // 이번 빌드 회귀의 실행만 합쳐 보고서 생성
             }                                               // catchError 끝
           }                                                 // each 끝
         }                                                   // script 끝
@@ -130,8 +136,18 @@ pipeline {                                                  // declarative pipel
   post {                                                    // 빌드가 끝난 뒤
     always {                                                // 결과와 상관없이 항상
       junit testResults: 'out/regress/*/junit.xml', allowEmptyResults: true  // JUnit 결과 수집 (Test Result 화면)
+      script {                                              // 결과를 GitHub 커밋 상태로 (실패해도 빌드 결과는 그대로)
+        def st = currentBuild.currentResult == 'SUCCESS' ? 'success' : (currentBuild.currentResult == 'ABORTED' ? 'error' : 'failure')
+        try {
+          withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
+            bat "\"%PYTHON%\" scripts/ci_status.py --state ${st} --context dma-uvm/${env.RUN_MODE ?: 'build'}"
+          }
+        } catch (e) {
+          echo "commit status not posted: ${e}"
+        }
+      }
       archiveArtifacts allowEmptyArchive: true, fingerprint: false,  // 결과물 보관 (fingerprint 없음)
-        artifacts: 'out/signoff/*, out/ml/check.json, out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'  // 회귀 요약, 실행 로그, 빌드 로그, FPGA 보고서
+        artifacts: 'out/signoff/*, out/gate/*, out/ml/check.json, out/regress/**/*.json, out/regress/**/*.xml, out/*/runs/**/run.log, out/*/runs/**/result.json, out/*/build/*.log, out/fpga/*/result.json, out/fpga/*/*.rpt, out/fpga/*/vivado.log'  // 회귀 요약, 실행 로그, 빌드 로그, FPGA 보고서
       // CD 결과물: fingerprint를 남겨 보드 이미지가 어느 빌드와 커밋에서 나왔는지 추적 가능
       archiveArtifacts allowEmptyArchive: true, fingerprint: true,  // 비트스트림과 XSA 보관 (fingerprint 남김)
         artifacts: 'out/fpga/system/design_1_wrapper.bit, out/fpga/system/design_1_wrapper.xsa'  // 보관할 파일

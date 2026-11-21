@@ -43,6 +43,8 @@ unclassified:
   location:
     url: "http://localhost:${JENKINS_PORT}/"
 
+# 잡 두 개: dma-uvm(main, 빌드 기록 유지), dma-uvm-branches(main이 아닌 브랜치, push마다 smoke).
+# 아래 script는 접힌 블록(>)이라 줄바꿈이 공백이 됨: 그 안에 // 주석을 쓰지 않고, 잡마다 script 항목을 따로 둠.
 jobs:
   - script: >
       pipelineJob('dma-uvm') {
@@ -69,5 +71,27 @@ jobs:
             scriptPath('Jenkinsfile')
             lightweight(true)
           }
+        }
+      }
+  - script: >
+      multibranchPipelineJob('dma-uvm-branches') {
+        description('main이 아닌 브랜치의 smoke 회귀. 결과는 GitHub 커밋 상태(dma-uvm/smoke)로도 올라감.')
+        branchSources {
+          git {
+            id('dma-uvm-branches-git')
+            remote('https://github.com/${GITHUB_REPO}.git')
+            credentialsId('github')
+            includes('*')
+            excludes('main')
+          }
+        }
+        triggers {
+          periodicFolderTrigger { interval('5m') }
+        }
+        orphanedItemStrategy {
+          discardOldItems { numToKeep(10) }
+        }
+        factory {
+          workflowBranchProjectFactory { scriptPath('Jenkinsfile') }
         }
       }

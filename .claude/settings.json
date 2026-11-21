@@ -1,10 +1,84 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/sim.py:*)",
+      "Bash(python scripts/regress.py:*)",
+      "Bash(python scripts/gate.py:*)",
+      "Bash(python scripts/plan_check.py:*)",
+      "Bash(python scripts/check_inventory.py:*)",
+      "Bash(python scripts/check_docs.py:*)",
+      "Bash(python scripts/signoff.py:*)",
+      "Bash(python .claude/hooks/test_hooks.py)",
+      "Bash(python -m unittest discover -s scripts/tests -t scripts)",
+      "mcp__vivado__list_testbenches",
+      "mcp__vivado__list_known_bugs",
+      "mcp__vivado__lint",
+      "mcp__vivado__run_test",
+      "mcp__vivado__get_log_excerpt",
+      "mcp__vivado__coverage_report",
+      "mcp__vivado__start_regression",
+      "mcp__vivado__regression_status",
+      "mcp__jenkins__getJob",
+      "mcp__jenkins__getBuild",
+      "mcp__jenkins__getTestResults",
+      "mcp__jenkins__getBuildLog",
+      "mcp__jenkins__searchBuildLog",
+      "mcp__jenkins__getFlakyFailures",
+      "mcp__jenkins__getBuildChangeSets"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "mcp__jenkins__triggerBuild",
+      "mcp__jenkins__rebuildBuild",
+      "mcp__jenkins__cancelBuild",
+      "mcp__jenkins__updateBuild",
+      "mcp__github__create_or_update_file",
+      "mcp__github__push_files",
+      "mcp__github__delete_file",
+      "mcp__github__create_branch",
+      "mcp__github__create_pull_request",
+      "mcp__github__update_pull_request",
+      "mcp__github__merge_pull_request",
+      "mcp__github__create_repository",
+      "mcp__github__delete_repository",
+      "mcp__github__fork_repository",
+      "mcp__github__issue_write"
+    ],
+    "deny": [
+      "mcp__jenkins__replayBuild",
+      "mcp__jenkins__createPipeline"
+    ]
+  },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.py\"" }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell|mcp__github__.*",
         "hooks": [
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect_rtl.py\"" }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect_rtl.py\" || exit 2" }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_rules.py\" || exit 2" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|mcp__.*",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_tool_use.py\"" }
         ]
       }
     ]

@@ -9,6 +9,8 @@ webtalk*
 xvlog.log
 xelab.log
 xsim*.log
+# 스크립트 테스트의 고정 샘플 로그는 저장소에 둠
+!scripts/tests/fixtures/*.log
 .Xil/
 xsim.covdb/
 xsim.codeCov/
@@ -34,6 +36,9 @@ Thumbs.db
 
 # ---- MCP ----
 mcp/.venv/
+
+# Claude Code가 서브에이전트용으로 만드는 worktree
+.claude/worktrees/
 
 # ---- DUT RTL (not distributed in this repository) ----
 HW/

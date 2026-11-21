@@ -14,6 +14,7 @@ scripts/board.py는 xsdb가 JTAG로 레지스터를 직접 쓰지만, 이 스크
 from __future__ import annotations                         # 타입 힌트를 문자열로 지연 평가
 
 import argparse                                             # 명령줄 인자
+import hashlib                                              # XSA 해시
 import json                                                 # result.json 저장
 import os                                                   # 환경 변수
 import re                                                   # 출력 파싱
@@ -24,10 +25,10 @@ import time                                                 # 시각
 import zipfile                                              # XSA 풀기
 from pathlib import Path                                    # 경로 처리
 
-for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 오류 출력마다
-    _s.reconfigure(encoding="utf-8", errors="replace")      # UTF-8로 (Windows 코드페이지 949 대비)
+from common import ROOT, provenance, setup_utf8           # 공통 모듈 (scripts/common.py)
+from common import tool as _tool                            # 도구 찾기
 
-ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트
+setup_utf8()                                                # UTF-8 출력 (Windows 코드페이지 949 대비)
 OUT = ROOT / "out" / "board_c"                              # 결과 디렉터리
 SRC = ROOT / "fw" / "dma_board_test"                        # C 소스
 BUILD_TCL = ROOT / "ci" / "vitis" / "build_app.tcl"         # xsct 빌드 스크립트
@@ -52,8 +53,7 @@ $p.Close()
 
 
 def tool(name: str, sub: str) -> str:                       # Xilinx 도구 경로 (Windows는 .bat)
-    root = Path(os.environ.get(sub.upper() + "_ROOT", f"C:/Xilinx/{sub}/2022.2"))  # 설치 위치
-    return str(root / "bin" / (name + (".bat" if os.name == "nt" else "")))  # OS에 맞는 실행 파일
+    return _tool(name, sub)                                 # XILINX_VIVADO / XILINX_VITIS -> PATH -> 기본 위치
 
 
 def build(xsa: Path, ws: Path) -> Path:                     # ELF 빌드
@@ -145,7 +145,9 @@ def main() -> int:                                          # 진입점
     summary = {"xsa": str(xsa), "elf": str(elf), "com": a.com, "xsdb_rc": p.returncode,  # 입력과 도구 상태
                "program_done": jtag[1] == "1" if jtag else False, "elapsed_s": round(time.time() - t0),  # 완료 여부, 시간
                "uart_agrees_with_mailbox": agree, "verdict": "PASS" if ok else "FAIL",  # 일치, 전체 판정
-               "mailbox": mb, "time": time.strftime("%Y-%m-%d %H:%M:%S")}  # mailbox 내용, 시각
+               "mailbox": mb, "time": time.strftime("%Y-%m-%d %H:%M:%S"),  # mailbox 내용, 시각
+               "xsa_sha256": hashlib.sha256(xsa.read_bytes()).hexdigest(),  # 보드에 올린 XSA (fpga.py system 결과와 대조)
+               "provenance": provenance()}                  # 실행한 checkout의 커밋, HW/ 해시
     (run / "result.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")  # 저장
 
     print("=" * 78)                                         # 구분선

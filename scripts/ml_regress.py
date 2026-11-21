@@ -35,69 +35,26 @@ from collections import defaultdict                         # 묶음 사전
 from concurrent.futures import ThreadPoolExecutor           # xcrg 병렬 실행
 from pathlib import Path                                    # 경로 처리
 
-for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 오류 출력마다
-    _s.reconfigure(encoding="utf-8", errors="replace")      # UTF-8로 (Windows 코드페이지 949 대비)
+from common import ROOT, setup_utf8, tool                 # 공통 모듈 (scripts/common.py)
 
-ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트
+setup_utf8()                                                # UTF-8 출력 (Windows 코드페이지 949 대비)
 OUT = ROOT / "out" / "ml"                                   # 결과 디렉터리
 CFG = json.loads((ROOT / "verif" / "sim_cfg.json").read_text(encoding="utf-8"))  # TB 설정
-XCRG = "C:/Xilinx/Vivado/2022.2/bin/xcrg.bat"               # xcrg (sim.py와 같은 Vivado)
+def xcrg() -> str:                                          # xcrg 경로 (sim.py와 같은 Vivado: XILINX_VIVADO -> PATH -> 기본 위치)
+    return tool("xcrg")                                     # import할 때가 아니라 쓸 때 찾음 (파서 테스트는 Vivado 없이 돎)
 PRIOR_A, PRIOR_B = 0.05, 1.0                                # Beta prior: 못 본 조합은 거의 0, 본 조합은 데이터가 지배
-TOP_SMOKE = ["dma_reg_reset_test", "dma_reg_bitbash_test", "dma_smoke_test",  # Jenkinsfile의 smoke top 테스트
-             "dma_small_test", "dma_irq_test", "dma_aw_backpressure_test"]   # (같은 목록 유지)
+TOP_SMOKE = __import__("plan_check").smoke_tests()           # 계획 없는 smoke의 top 테스트 (verif/plan.toml [smoke], Jenkinsfile과 같은 곳)
 
 
 # --------------------------------------------------------------------------- #
 # 1. 데이터 추출
 # --------------------------------------------------------------------------- #
-def parse_report(txt: str) -> dict[str, int]:               # xcrg 텍스트 보고서 -> {bin 키: 적중 수}
-    bins: dict[str, int] = {}                               # 결과
-    table = None                                            # 지금 읽는 coverpoint 표 이름
-    mode = None                                             # 'bins' 섹션 안이면 True
-    seen: set[str] = set()                                  # 이미 읽은 표 이름
-    zero_w: set[str] = set()                                # weight 0인 coverpoint/cross (목표가 아닌 참고용)
-    inst = None                                             # 요약 섹션의 현재 인스턴스
-    for line in txt.splitlines():                           # 요약 섹션에서 weight 읽기
-        m = re.match(r"\s*Instance (\S+) (?:Cross )?Cover Point Details", line)  # 인스턴스 요약 시작
-        if m:                                               # 찾으면
-            inst = m[1]                                     # 기억
-            continue                                        # 다음 줄
-        f = [x.strip() for x in line.split(",")]            # 쉼표로 나눔
-        if inst and len(f) >= 8 and f[2].isdigit() and f[7].isdigit():  # 이름, tag, 기대 bin 수, ..., weight
-            if int(f[7]) == 0:                              # weight 0이면
-                zero_w.add(f"{inst}.{f[0]}")                # 제외 목록에 추가
-    for line in txt.splitlines():                           # 줄마다
-        m = re.match(r"\s*(?:Cross )?Cover Point Table for Inst : (.+?), Variable :, (\S+)", line)  # 표 시작
-        if m:                                               # 새 표면
-            base = f"{m[1].strip()}.{m[2]}"                 # 인스턴스.변수
-            # xcrg 2022.2는 covergroup의 두 번째 cross 표에 첫 번째 cross의 이름과 내용을 그대로 다시 찍음
-            # (예: x_dir_4k 자리에 x_dir_len). 같은 이름이 또 나오면 그 표는 버림.
-            table = None if base in seen or base in zero_w else base  # 중복 표와 weight 0 표는 읽지 않음
-            seen.add(base)                                  # 기록
-            mode = None                                     # 섹션 초기화
-            continue                                        # 다음 줄
-        s = line.strip()                                    # 앞뒤 공백 제거
-        if s.endswith("Uncovered bins") or s.endswith("Covered bins"):  # bin 목록 섹션 시작
-            mode = True                                     # 목록 읽기 시작
-            continue                                        # 다음 줄
-        if not s:                                           # 빈 줄이면
-            mode = None if mode == "data" else mode         # 데이터 뒤의 빈 줄은 섹션 끝
-            continue                                        # 다음 줄
-        if mode and table and "Hit Count" in s:             # 열 이름 줄
-            mode = "data"                                   # 다음 줄부터 데이터
-            continue                                        # 다음 줄
-        if mode == "data" and table:                        # 데이터 줄이면
-            f = [x.strip() for x in s.split(",")]           # 쉼표로 나눔 (끝에 빈 칸 하나)
-            f = f[:-1] if f and f[-1] == "" else f          # 끝 빈 칸 제거
-            if any("*" in x or "(" in x for x in f[:-2]):   # 못 친 cross bin 묶음 ("one x *", "(one mid ) x rd")은 개별 bin이 아님
-                continue                                    # 건너뜀 (친 bin만 목표로 쓰므로 영향 없음)
-            if len(f) >= 3 and f[-2].isdigit():             # 이름..., 적중 수, AtLeast
-                bins[f"{table}:{'x'.join(f[:-2])}"] = int(f[-2])  # bin 키 = 표:이름 (cross는 x로 연결)
-    return bins                                             # 결과
+from xcrg_report import parse_report                         # xcrg 보고서 파서 (scripts/xcrg_report.py)
 
 
-def extract_one(tb: str, test: str, seed: int) -> dict | None:  # 실행 하나의 bin 적중표
-    db = ROOT / "out" / tb / "runs" / f"{test}_{seed}" / "funccov" / "xsim.covdb"  # 기능 커버리지 DB
+def extract_one(tb: str, test: str, seed: int, run_dir: str | None = None) -> dict | None:  # 실행 하나의 bin 적중표
+    rd = ROOT / run_dir if run_dir else ROOT / "out" / tb / "runs" / f"{test}_{seed}"  # 실행 폴더 (회귀 이름 아래, 예전 결과는 바로 아래)
+    db = rd / "funccov" / "xsim.covdb"                      # 기능 커버리지 DB
     rj = db.parent.parent / "result.json"                   # 실행 결과
     if not db.exists() or not rj.exists():                  # 없으면 (covergroup 없는 TB, 실행 실패)
         return None                                         # 건너뜀
@@ -105,7 +62,7 @@ def extract_one(tb: str, test: str, seed: int) -> dict | None:  # 실행 하나�
     bins = None                                             # bin 적중표
     for _ in range(3):                                      # xcrg가 가끔 보고서 없이 끝나므로 (CI #25에서 47회 중 2회) 3번까지 시도
         with tempfile.TemporaryDirectory() as td:           # 임시 보고서 디렉터리
-            subprocess.run(f'"{XCRG}" -report_format text -dir "{db}" -report_dir "{td}/r" -log "{td}/x.log"',  # 단일 DB 보고서
+            subprocess.run(f'"{xcrg()}" -report_format text -dir "{db}" -report_dir "{td}/r" -log "{td}/x.log"',  # 단일 DB 보고서
                            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # xcrg.bat는 성공해도 127
             rep = Path(td) / "r" / "xcrg_func_cov_report.txt"  # 텍스트 보고서
             if rep.exists():                                # 보고서가 있으면
@@ -119,7 +76,7 @@ def extract_one(tb: str, test: str, seed: int) -> dict | None:  # 실행 하나�
 
 def extract(a) -> int:                                      # extract 명령
     summ = json.loads(Path(a.src).read_text(encoding="utf-8"))  # 회귀 summary.json
-    work = [(r["tb"], r["test"], r["seed"]) for r in summ["results"]]  # 실행 목록
+    work = [(r["tb"], r["test"], r["seed"], r.get("run_dir")) for r in summ["results"]]  # 실행 목록 (실행 폴더 포함)
     OUT.mkdir(parents=True, exist_ok=True)                  # 결과 디렉터리
     with ThreadPoolExecutor(max_workers=a.jobs) as ex:      # 병렬 xcrg
         rows = [r for r in ex.map(lambda w: extract_one(*w), work) if r]  # 결과 모음 (없는 것 제외)
@@ -305,16 +262,17 @@ def check(a) -> int:                                        # check 명령
     target = {tb: set(b) for tb, b in doc.get("target_bins", {}).items()}  # TB -> 목표 bin
     work = []                                               # 확인할 실행
     for sp in a.summary:                                    # 회귀 summary.json마다
-        work += [(r["tb"], r["test"], r["seed"]) for r in json.loads(Path(sp).read_text(encoding="utf-8"))["results"]]  # 실행 목록
+        work += [(r["tb"], r["test"], r["seed"], r.get("run_dir"))  # 실행 목록 (실행 폴더 포함)
+                 for r in json.loads(Path(sp).read_text(encoding="utf-8"))["results"]]
     with ThreadPoolExecutor(max_workers=a.jobs) as ex:      # 병렬 xcrg
         got = list(ex.map(lambda w: extract_one(*w), work))  # 실행별 bin 적중표 (실패는 None)
     rows = [r for r in got if r]                            # 읽은 실행
-    unread = [f"{tb}/{t}_{sd}" for (tb, t, sd), r in zip(work, got) if r is None]  # 커버리지를 못 읽은 실행
+    unread = [f"{tb}/{t}_{sd}" for (tb, t, sd, _), r in zip(work, got) if r is None]  # 커버리지를 못 읽은 실행
     hit = defaultdict(set)                                  # TB -> 친 bin
     for r in rows:                                          # 실행마다
         hit[r["tb"]].update(b for b, h in r["bins"].items() if h > 0)  # 친 bin 모음
     res, ok = {}, True                                      # 결과, 전체 통과 여부
-    for tb in sorted(set(hit) & set(target)):               # 이번에 돌았고 목표가 있는 TB마다
+    for tb in sorted(target):                               # 목표가 있는 모든 TB (회귀에서 통째로 빠진 TB도 FAIL로 잡음)
         miss = sorted(target[tb] - hit[tb])                 # 못 친 목표 bin
         res[tb] = {"covered": len(target[tb]) - len(miss), "target": len(target[tb]),  # 친 수, 목표 수
                    "pct": round(100 * (1 - len(miss) / len(target[tb])), 2), "missing": miss}  # 비율, 못 친 bin

@@ -9,6 +9,7 @@ xsdb(Vivado에 포함)로 JTAG를 통해 PS를 초기화하고 DMA 레지스터�
 from __future__ import annotations                         # 타입 힌트를 문자열로 지연 평가
 
 import argparse                                             # 명령줄 인자
+import hashlib                                              # XSA 해시
 import json                                                 # result.json 저장
 import os                                                   # 환경 변수
 import random                                               # 원본 데이터 생성
@@ -19,10 +20,9 @@ import time                                                 # 시각
 import zipfile                                              # XSA 풀기
 from pathlib import Path                                    # 경로 처리
 
-for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 오류 출력마다
-    _s.reconfigure(encoding="utf-8", errors="replace")      # UTF-8로 (Windows 코드페이지 949 대비)
+from common import ROOT, provenance, setup_utf8, tool     # 공통 모듈 (scripts/common.py)
 
-ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트
+setup_utf8()                                                # UTF-8 출력 (Windows 코드페이지 949 대비)
 OUT = ROOT / "out" / "board"                                # 보드 시험 결과 디렉터리
 TCL = ROOT / "ci" / "vivado" / "board_test.tcl"             # xsdb 스크립트
 DDR = 0x10000000                                            # 시험에 쓰는 DDR 영역 시작 (mem_copy_test.c와 같음)
@@ -40,8 +40,7 @@ CASES = [                                                   # 시험 목록 시�
 
 
 def xsdb() -> str:                                          # xsdb 실행 파일 경로를 돌려주는 함수
-    root = Path(os.environ.get("VIVADO_ROOT", "C:/Xilinx/Vivado/2022.2"))  # Vivado 설치 위치
-    return str(root / "bin" / ("xsdb.bat" if os.name == "nt" else "xsdb"))  # OS에 맞는 실행 파일
+    return tool("xsdb")                                     # XILINX_VIVADO -> PATH -> 기본 위치 (common.tool)
 
 
 def make_src(kind: str, n: int, seed: int) -> bytes:        # 원본 데이터를 만드는 함수
@@ -103,7 +102,9 @@ def main() -> int:                                          # 진입점
 
     summary = {"xsa": str(xsa), "jtag": jtag[1] if jtag else None, "seed": a.seed,  # 요약: XSA, 보드, seed
                "elapsed_s": round(time.time() - t0), "xsdb_rc": p.returncode, "results": results,  # 시간, 종료 코드, 결과
-               "time": time.strftime("%Y-%m-%d %H:%M:%S")}  # 시각
+               "time": time.strftime("%Y-%m-%d %H:%M:%S"),  # 시각
+               "xsa_sha256": hashlib.sha256(xsa.read_bytes()).hexdigest(),  # 보드에 올린 XSA (fpga.py system 결과와 대조)
+               "provenance": provenance()}                  # 실행한 checkout의 커밋, HW/ 해시
     (run / "result.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")  # 저장
 
     print("=" * 72)                                         # 구분선

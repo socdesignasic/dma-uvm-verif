@@ -29,12 +29,9 @@ import sys                                                  # 종료 코드
 import time                                                 # 걸린 시간, 시각 문자열
 from pathlib import Path                                    # 경로 처리
 
-# 한글 출력이 Jenkins/MCP(UTF-8로 읽음)에서 깨지지 않도록 출력 인코딩을 UTF-8로 고정
-for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 표준 오류 각각
-    if hasattr(_s, "reconfigure"):                          # reconfigure를 지원하면
-        _s.reconfigure(encoding="utf-8", errors="replace")  # UTF-8로 바꾸고, 못 바꾸는 문자는 ?로
+from common import ROOT, provenance, run_cmd, setup_utf8, tool  # 공통 모듈 (scripts/common.py)
 
-ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트
+setup_utf8()                                                # UTF-8 출력
 OUT = ROOT / "out" / "fpga"                                 # FPGA 결과 디렉터리
 VIV = ROOT / "ci" / "vivado"                                # Vivado Tcl 스크립트 디렉터리
 DEFAULT_PART = "xc7z020clg400-1"                            # 기본 FPGA 부품 (Zybo Z7-20)
@@ -45,27 +42,15 @@ LIMITS = {                                                  # 부품별 자원 �
 
 
 def vivado() -> str:                                        # Vivado 실행 파일 경로를 돌려주는 함수
-    env = os.environ.get("XILINX_VIVADO")                   # XILINX_VIVADO 환경 변수
-    base = Path(env) if env else Path("C:/Xilinx/Vivado/2022.2")  # 없으면 기본 설치 위치
-    exe = base / "bin" / ("vivado.bat" if os.name == "nt" else "vivado")  # Windows면 .bat, 아니면 실행 파일
-    if not exe.exists():                                    # 없으면
-        sys.exit(f"ERROR: Vivado not found at {exe} (set XILINX_VIVADO)")  # 오류 종료
-    return str(exe)                                         # 문자열로 반환
+    return tool("vivado")                                   # XILINX_VIVADO -> PATH -> 기본 위치 (common.tool)
 
 
 def run_vivado(tcl: Path, out: Path, tclargs: list[str], timeout: int) -> int:  # Vivado를 batch 모드로 실행하는 함수
     log = out / "vivado.log"                                # Vivado 로그 경로
     cmd = [vivado(), "-mode", "batch", "-nojournal", "-log", str(log), "-source", str(tcl),  # batch 모드, journal 없음, 로그, Tcl 스크립트
            "-tclargs", *tclargs]                            # Tcl 스크립트에 넘길 인자
-    # Windows .bat wrapper: 따옴표/슬래시 규칙은 sim.py와 같음
-    line = " ".join(f'"{c}"' if re.search(r"[\s=,;&()^]", c) else c  # Windows 명령줄 문자열로 변환 (특수문자 있으면 따옴표)
-                    for c in (x.replace("\\", "/") for x in cmd))  # 역슬래시를 슬래시로
-    print(">>", line, flush=True)                           # 실행할 명령 출력
-    try:                                                    # 시간 제한 처리
-        return subprocess.run(line if os.name == "nt" else cmd, cwd=out, timeout=timeout).returncode  # 실행하고 종료 코드 반환
-    except subprocess.TimeoutExpired:                       # 시간 초과면
-        print(f"ERROR: vivado timeout after {timeout}s")    # 오류 출력
-        return 124                                          # timeout 관례 종료 코드 124
+    # Windows .bat wrapper의 따옴표/슬래시 처리와 시간 초과 때 프로세스 트리 종료는 common.run_cmd가 함
+    return run_cmd(cmd, out, timeout=timeout)               # 실행하고 종료 코드 반환 (시간 초과면 124)
 
 
 def parse_result(out: Path, part: str) -> dict:   # Tcl이 남긴 결과와 보고서를 읽는 함수
@@ -154,7 +139,7 @@ def main() -> int:                                          # 진입점
                         timeout=4 * 3600)                   # 최대 4시간
 
     res = parse_result(out, a.part)                         # 결과 파싱
-    res.update({"mode": a.mode, "part": a.part, "git": git_rev(), "vivado_rc": rc,  # 모드, git 커밋, Vivado 종료 코드
+    res.update({"mode": a.mode, "part": a.part, "git": git_rev(), "provenance": provenance(), "vivado_rc": rc,  # 모드, git 커밋, Vivado 종료 코드
                 "elapsed_s": round(time.time() - t0), "time": time.strftime("%Y-%m-%d %H:%M:%S")})  # 걸린 시간, 시각
     if a.mode == "system":                                  # system이면
         arts = {}                                           # 결과물 정보

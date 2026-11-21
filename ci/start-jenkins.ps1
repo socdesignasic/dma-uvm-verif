@@ -22,7 +22,8 @@ param(                                                      # 스크립트 인�
   [string]$GhExe       = "C:\Program Files\GitHub CLI\gh.exe",  # GitHub CLI (토큰을 얻는 데 사용)
   [string]$GithubRepo  = "socdesignasic/dma-uvm",           # 빌드할 GitHub 저장소
   [int]   $Port        = 8090,       # 8080은 Jenkins Windows 서비스가 사용 중
-  [int]   $RegressJobs = 6                                  # 회귀 병렬 실행 수
+  [int]   $RegressJobs = 6,                                  # 회귀 병렬 실행 수
+  [switch]$CatchUpNightly                                   # 마지막 nightly가 24시간보다 오래됐으면 full 빌드 한 번 (로그온 자동 시작용)
 )                                                           # 인자 정의 끝
 $ErrorActionPreference = "Stop"                             # 오류가 나면 바로 멈춤
 $RepoCi = $PSScriptRoot                                     # 이 스크립트가 있는 ci 디렉터리
@@ -91,3 +92,6 @@ Write-Host "Jenkins starting (pid $($p.Id)), log: $log"     # 시작 안내
 Write-Host "URL      : http://localhost:$Port/job/dma-uvm/"  # 잡 URL
 Write-Host "User     : admin"                               # 사용자 이름
 Write-Host "Password : stored in $pwFile"                   # 비밀번호 파일 위치
+if ($CatchUpNightly) {                                       # 밀린 nightly 보충 (ci/install-autostart.ps1이 켬)
+  & $PythonExe (Join-Path $RepoCi "catchup_nightly.py") --port $Port --password-file $pwFile
+}

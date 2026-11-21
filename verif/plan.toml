@@ -1,0 +1,911 @@
+# verif/plan.toml - 검증 계획 데이터의 원본 (vplan, 가설, 버그, waiver, 승인된 RTL)
+#
+# 이 파일만 고칩니다. verif/vplan/vplan.md는 여기서 생성합니다:
+#   python scripts/plan_check.py --write     # vplan.md 다시 생성
+#   python scripts/plan_check.py             # 서로 맞는지 검사 (sign-off S2, S9가 이 결과를 씀)
+#
+# features.tests  : "<tb>/<test>". tb 자리에 *를 쓰면 그 테스트가 있는 모든 TB (테스트 이름에는 * 금지)
+# features.checks : scripts/check_inventory.py의 검사 ID (uvm_error 태그, SVA:<라벨>)
+# features.covers : 커버포인트 "<covergroup>.<coverpoint>". verif/regress_plan.json의 목표 bin에 있어야 함
+# status          : planned | in_progress | done | blocked (blocked면 bug 또는 hypothesis 필요)
+# *_text          : vplan.md 표에 보이는 글 (사람이 읽는 설명)
+
+schema = 1
+title = "검증 계획 (계속 갱신하는 문서)"
+legend = "표시: ✅ 완료 · 🚧 진행 중 · ⬜ 계획 · ❌ 버그로 막힘"
+
+[rtl]
+# HW/ 내용 해시 (scripts/common.py hw_hash). RTL이 바뀌면 sign-off가 FAIL하고, 사람이 확인한 뒤 갱신합니다.
+approved_hw_hash = "9fdca2f0cc594a65"
+approved_on = "2026-11-14"
+note = "HW/는 9627972(2026-11-14) 이후 바뀌지 않음"
+
+[smoke]
+# 계획 없이 도는 smoke의 top 테스트 (Jenkinsfile과 scripts/ml_regress.py가 여기서 읽음)
+top_tests = [
+  "dma_reg_reset_test",
+  "dma_reg_bitbash_test",
+  "dma_smoke_test",
+  "dma_short_job_test",
+  "dma_irq_test",
+  "dma_aw_backpressure_test",
+  "dma_checker_test",
+]
+
+[[sections]]
+id = "unit"
+heading = "P1: 단위 레벨 (`verif/unit`, `unit_env_pkg`, `unit_test_pkg`)"
+preamble = []
+columns = ["기능", "블록", "테스트", "검사", "커버리지", "상태"]
+
+[[sections]]
+id = "top"
+heading = "P2: top 레벨 `dma_ip_top` (`verif/top`, `dma_env_pkg`, `dma_seq_pkg`, `dma_test_pkg`)"
+preamble = [
+  "env: AXI4-Lite master (`axil_agent` + `axil_monitor`) → DUT → AXI4 slave agent + 메모리 모델 (`axi4_slave_pkg`). 레지스터는 RAL(`dma_reg_block`, frontdoor는 `axil_reg_adapter`), 검사는 `dma_predictor`(모든 AXI-Lite 읽기와 interrupt 핀 예측, start 순간에 job 생성) + `dma_scoreboard`(모니터 기반: AR/AW 목록, W beat, 마지막 B 뒤 메모리).",
+  "작업마다: `dma_job_vseq`가 `SW/mem_copy_test.c`와 같은 순서로 레지스터를 설정하고, 시작하고, 완료(polling 또는 IRQ)를 기다립니다. 판정은 monitor가 본 것으로 `dma_predictor`와 `dma_scoreboard`가 합니다.",
+]
+columns = ["기능", "테스트", "검사", "커버리지", "상태"]
+
+[[features]]
+id = "unit.in_order"
+section = "unit"
+title = "손실 없이 순서대로 전달"
+block = "fifo, skid, adder"
+tests_text = "모든 unit 테스트"
+checks_text = "순서 비교 scoreboard, 남은 beat/예상 밖 beat"
+coverage_text = "beat 개수"
+tests = [
+  "*/unit_smoke_test",
+  "*/unit_post_reset_test",
+  "*/unit_rand_test",
+  "*/unit_backpressure_test",
+  "*/unit_sparse_input_test",
+  "*/unit_fixed_value_test",
+]
+checks = ["SB_MISMATCH", "SB_LEFTOVER", "SB_UNEXPECTED", "SB_NO_TRAFFIC", "TIMEOUT"]
+covers = []
+status = "done"
+
+[[features]]
+id = "unit.adder_lane"
+section = "unit"
+title = "adder lane별 덧셈, 32비트 wrap"
+block = "adder"
+tests_text = "rand, fixed_value"
+checks_text = "lane별 덧셈 모델"
+coverage_text = "`cp_lo/hi_carry` 있음/없음"
+tests = ["adder/unit_rand_test", "adder/unit_fixed_value_test"]
+checks = ["SB_MISMATCH"]
+covers = ["cg_beat.cp_lo_carry", "cg_beat.cp_hi_carry"]
+status = "done"
+
+[[features]]
+id = "unit.adder8"
+section = "unit"
+title = "adder 8비트 lane (top 설정)"
+block = "adder8"
+tests_text = "모든 unit 테스트"
+checks_text = "같은 모델, lane_bw=8"
+coverage_text = ""
+tests = [
+  "adder8/unit_smoke_test",
+  "adder8/unit_post_reset_test",
+  "adder8/unit_rand_test",
+  "adder8/unit_backpressure_test",
+  "adder8/unit_sparse_input_test",
+  "adder8/unit_fixed_value_test",
+]
+checks = ["SB_MISMATCH"]
+covers = []
+status = "done"
+
+[[features]]
+id = "unit.side_per_beat"
+section = "unit"
+title = "ctrl_constant를 beat마다 샘플링"
+block = "adder"
+tests_text = "rand (side가 beat마다 바뀜)"
+checks_text = "모델이 handshake 시점의 side를 사용"
+coverage_text = "`cp_side`"
+tests = ["adder/unit_rand_test", "adder8/unit_rand_test"]
+checks = ["SB_MISMATCH"]
+covers = ["cg_beat.cp_side"]
+status = "done"
+
+[[features]]
+id = "unit.side_fixed"
+section = "unit"
+title = "value_to_add 고정 (top의 사용 방식)"
+block = "adder"
+tests_text = "fixed_value"
+checks_text = "같음"
+coverage_text = ""
+tests = ["adder/unit_fixed_value_test", "adder8/unit_fixed_value_test"]
+checks = ["SB_MISMATCH"]
+covers = []
+status = "done"
+
+[[features]]
+id = "unit.backpressure"
+section = "unit"
+title = "backpressure, FIFO 가득 참"
+block = "fifo, fifo_d4"
+tests_text = "backpressure"
+checks_text = "scoreboard"
+coverage_text = "`cp_in` stall 상태, `stall_release`"
+tests = ["fifo/unit_backpressure_test", "fifo_d4/unit_backpressure_test"]
+checks = ["SB_MISMATCH", "SB_LEFTOVER"]
+covers = ["cg_cycle.cp_in", "cg_cycle.cp_in_seq"]
+status = "done"
+
+[[features]]
+id = "unit.drain_trickle"
+section = "unit"
+title = "빌 때까지 배출, 띄엄띄엄 입력"
+block = "전부"
+tests_text = "sparse_input"
+checks_text = "scoreboard"
+coverage_text = "`cp_out` idle"
+tests = ["*/unit_sparse_input_test"]
+checks = ["SB_MISMATCH", "SB_LEFTOVER"]
+covers = ["cg_cycle.cp_out"]
+status = "done"
+
+[[features]]
+id = "unit.back_to_back"
+section = "unit"
+title = "연속(back-to-back) 최대 처리량"
+block = "전부"
+tests_text = "smoke"
+checks_text = "scoreboard"
+coverage_text = "`b2b` 전이"
+tests = ["*/unit_smoke_test"]
+checks = ["SB_MISMATCH"]
+covers = ["cg_cycle.cp_out_seq"]
+status = "done"
+
+[[features]]
+id = "unit.post_reset"
+section = "unit"
+title = "리셋 직후 첫 사이클의 valid"
+block = "skid, fifo"
+tests_text = "post_reset"
+checks_text = "scoreboard"
+coverage_text = ""
+tests = [
+  "fifo/unit_post_reset_test",
+  "fifo_d4/unit_post_reset_test",
+  "skid/unit_post_reset_test",
+]
+checks = ["SB_MISMATCH", "SB_UNEXPECTED"]
+covers = []
+status = "blocked"
+bug = "BUG-001"
+
+[[features]]
+id = "unit.single_beat"
+section = "unit"
+title = "리셋이 충분히 지난 뒤 beat 1개만 보내고 끝남"
+block = "skid"
+tests_text = "single_beat"
+checks_text = "1건 비교, 남은 beat/예상 밖 beat, 배출 타임아웃"
+coverage_text = ""
+tests = ["skid/unit_single_beat_test"]
+checks = ["SB_MISMATCH", "SB_LEFTOVER", "SB_UNEXPECTED", "SB_NO_TRAFFIC", "TIMEOUT"]
+covers = []
+status = "done"
+
+[[features]]
+id = "unit.vr_protocol"
+section = "unit"
+title = "valid/ready 프로토콜 (유지, X 없음)"
+block = "모든 포트"
+tests_text = "전부"
+checks_text = "`stream_if`의 SVA (UVM_ERROR)"
+coverage_text = ""
+tests = [
+  "*/unit_smoke_test",
+  "*/unit_post_reset_test",
+  "*/unit_rand_test",
+  "*/unit_backpressure_test",
+  "*/unit_sparse_input_test",
+  "*/unit_fixed_value_test",
+]
+checks = [
+  "SVA:a_hold",
+  "SVA:a_valid_known",
+  "SVA:a_ready_known",
+  "SVA:a_data_known",
+  "VR_SVA",
+]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.reg_reset"
+section = "top"
+title = "레지스터 리셋 값 (10개 전부, 32비트 전체, AP_CTRL idle=1과 ISR 포함)"
+tests_text = "dma_reg_reset_test"
+checks_text = "RAL 내장 `uvm_reg_hw_reset_seq`로 10개를 읽고, `dma_predictor`가 읽기마다 32비트 전체를 리셋 값과 비교 (REG_RESET, 10회)"
+coverage_text = ""
+tests = ["top/dma_reg_reset_test"]
+checks = ["REG_RESET", "AXIL_RESP", "SVA:a_r_hold", "AXIL_SVA"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.reg_bitbash"
+section = "top"
+title = "레지스터 R/W (AP_CTRL, ISR을 뺀 모든 RW 레지스터): walking 1/0, 사용 안 하는 비트는 0"
+tests_text = "dma_reg_bitbash_test"
+checks_text = "`dma_reg_bitbash_vseq`: 0 배경 `uvm_reg_bit_bash_seq`(walking-1) + 1 배경 `uvm_reg_single_bit_bash_seq`(walking-0), 예약 비트에도 1을 씀. `dma_predictor`가 읽기마다 32비트 전체 비교 (REG_BITBASH, 1024회)"
+coverage_text = ""
+tests = ["top/dma_reg_bitbash_test"]
+checks = ["REG_BITBASH", "AXIL_RESP", "SVA:a_b_hold", "SVA:a_r_hold", "AXIL_SVA"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.reg_predict"
+section = "top"
+title = "레지스터 읽기 예측: 모든 AXI-Lite 읽기(32비트 전체)와 interrupt 핀(매 사이클)이 RTL 사이클 모델과 같음"
+tests_text = "레지스터 테스트와 모든 작업 테스트"
+checks_text = "`dma_predictor`가 AR 에지에서 예측한 값과 R 관찰값을 비교: 리셋 뒤 그대로인 레지스터 (REG_RESET), 예약 비트와 RW 필드 (REG_BITBASH), ISR[0]/AP_CTRL.done/interrupt 핀 (IRQ), start/idle/ready/interrupt[9]/ISR[1] (REG_STATUS), 모델이 다루지 않는 접근 (PRED_UNSUPPORTED). mirror는 `uvm_reg_predictor`가 `axil_reg_adapter`로 갱신 (ADAPTER: 연결 실수)"
+coverage_text = ""
+tests = [
+  "top/dma_reg_reset_test",
+  "top/dma_reg_bitbash_test",
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["REG_RESET", "REG_BITBASH", "REG_STATUS", "IRQ", "PRED_UNSUPPORTED", "ADAPTER"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.data_add"
+section = "top"
+title = "바이트마다 dst = src + value_to_add[7:0]"
+tests_text = "모든 작업 테스트"
+checks_text = "W beat마다 기대 데이터와 strobe (SB_WDATA, SB_WSTRB), 마지막 B 뒤 dst 모든 바이트 비교 (SB_DATA). dst는 ~기대값으로 미리 오염"
+coverage_text = "`cp_value` 0/1/255/그 외"
+tests = [
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["SB_DATA", "SB_WDATA", "SB_WSTRB"]
+covers = ["cg_job.cp_value"]
+status = "done"
+
+[[features]]
+id = "top.value_upper_ignored"
+section = "top"
+title = "value_to_add[31:8] 무시"
+tests_text = "모든 작업 테스트"
+checks_text = "같음"
+coverage_text = "`cp_upper`"
+tests = [
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["SB_DATA"]
+covers = ["cg_job.cp_upper"]
+status = "done"
+
+[[features]]
+id = "top.no_overrun_src_kept"
+section = "top"
+title = "넘침/모자람 없음, 원본 보존"
+tests_text = "모든 작업 테스트"
+checks_text = "dst 앞뒤 64B 보호 영역, src 스냅샷"
+coverage_text = ""
+tests = [
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["SB_OVERRUN", "SB_SRC"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.burst_rules"
+section = "top"
+title = "burst는 INCR, 8B size와 정렬, 16 beat 이하"
+tests_text = "전부"
+checks_text = "`axi4_slave_monitor` 검사"
+coverage_text = "`cp_len` 1/2-15/16"
+tests = [
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["AXI_BURST", "AXI_SIZE", "AXI_ALIGN", "AXI_LEN"]
+covers = ["cg_burst.cp_len"]
+status = "done"
+
+[[features]]
+id = "top.split_4kb"
+section = "top"
+title = "4KB 경계 분할"
+tests_text = "dma_4kb_cross_test (+ 랜덤)"
+checks_text = "AXI_4KB 검사, SB_RANGE, 4KB 경계에서 나눈 기대 burst 목록과 AR/AW 비교 (SB_AR_LIST, SB_AW_LIST)"
+coverage_text = "`split_at_4k` rd/wr"
+tests = ["top/dma_4kb_cross_test", "top/dma_rand_test"]
+checks = ["AXI_4KB", "SB_RANGE", "SB_AR_LIST", "SB_AW_LIST"]
+covers = ["cg_burst.cp_4k"]
+status = "done"
+
+[[features]]
+id = "top.beat_total"
+section = "top"
+title = "AR, AW의 beat 합계 = bytes/8"
+tests_text = "모든 작업 테스트"
+checks_text = "SB_BEATS, burst마다 기대 목록의 주소, len, size, burst 비교 (SB_AR_LIST, SB_AW_LIST)"
+coverage_text = "`cp_beats` 1..8192"
+tests = [
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["SB_BEATS", "SB_AR_LIST", "SB_AW_LIST"]
+covers = ["cg_job.cp_beats"]
+status = "done"
+
+[[features]]
+id = "top.axi_protocol"
+section = "top"
+title = "AXI master 프로토콜 (유지, X)"
+tests_text = "전부"
+checks_text = "`axi4_if`의 SVA"
+coverage_text = ""
+tests = [
+  "top/dma_reg_reset_test",
+  "top/dma_reg_bitbash_test",
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+  "top/dma_aw_backpressure_test",
+]
+checks = [
+  "SVA:a_ar_hold",
+  "SVA:a_aw_hold",
+  "SVA:a_w_hold",
+  "SVA:a_valid_known",
+  "AXI_SVA",
+]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.backpressure"
+section = "top"
+title = "R/W/AR/B backpressure, R 지연"
+tests_text = "rand, backpressure, long_job"
+checks_text = "위 검사 전부"
+coverage_text = ""
+tests = ["top/dma_rand_test", "top/dma_backpressure_test", "top/dma_long_job_test"]
+checks = ["SB_DATA", "AXI_PENDING", "AXI_RD_UNINIT"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.aw_backpressure"
+section = "top"
+title = "AWREADY backpressure"
+tests_text = "dma_aw_backpressure_test"
+checks_text = "WLAST 위치, 완료 여부 (JOB_TIMEOUT, 마지막 B까지 가지 못한 job은 SB_UNFINISHED)"
+coverage_text = ""
+tests = ["top/dma_aw_backpressure_test"]
+checks = ["AXI_WLAST", "JOB_TIMEOUT", "SB_UNFINISHED"]
+covers = []
+status = "blocked"
+bug = "BUG-002"
+
+[[features]]
+id = "top.done_polling"
+section = "top"
+title = "AP_CTRL.done polling으로 완료 (읽으면 지워짐)"
+tests_text = "대부분"
+checks_text = "done 비트, GIE=0이면 인터럽트는 0 유지 (IRQ), AP_CTRL의 start/idle/ready 예측 (REG_STATUS)"
+coverage_text = "`cp_mode`"
+tests = [
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_long_job_test",
+]
+checks = ["IRQ", "REG_STATUS"]
+covers = ["cg_job.cp_mode"]
+status = "done"
+
+[[features]]
+id = "top.done_irq"
+section = "top"
+title = "인터럽트로 완료 (GIE/IER/ISR)"
+tests_text = "dma_irq_test, rand"
+checks_text = "ISR[0] 설정, ISR을 읽으면 IRQ 내려감 (IRQ), ISR[1]과 AP_CTRL 상태 비트 예측 (REG_STATUS)"
+coverage_text = "`cp_mode`"
+tests = ["top/dma_irq_test", "top/dma_rand_test"]
+checks = ["IRQ", "REG_STATUS", "SVA:a_irq_known"]
+covers = ["cg_job.cp_mode"]
+status = "done"
+
+[[features]]
+id = "top.size_edge"
+section = "top"
+title = "정확한 경계 크기 (1 beat, 16 = burst 하나 가득, 512 = 4KB 페이지 하나) × polling과 IRQ 완료"
+tests_text = "dma_size_edge_test"
+checks_text = "바이트 비교, SB_BEATS, IRQ 검사"
+coverage_text = "`x_size_mode` one/max_burst/page × 두 모드"
+tests = ["top/dma_size_edge_test"]
+checks = ["SB_DATA", "SB_BEATS", "IRQ"]
+covers = ["cg_job.x_size_mode"]
+status = "done"
+
+[[features]]
+id = "top.smoke"
+section = "top"
+title = "기본 경로: 32 beat 작업 하나, backpressure 없음 (빠른 sanity)"
+tests_text = "dma_smoke_test"
+checks_text = "바이트 비교, SB_BEATS, 완료"
+coverage_text = "`cp_beats` multi"
+tests = ["top/dma_smoke_test"]
+checks = ["SB_DATA", "SB_BEATS", "JOB_TIMEOUT", "SB_NO_JOBS"]
+covers = ["cg_job.cp_beats"]
+status = "done"
+
+[[features]]
+id = "top.small_jobs"
+section = "top"
+title = "짧은 작업: 덜 찬 burst, 1 beat 작업 (1..20 beat, 30개)"
+tests_text = "dma_short_job_test"
+checks_text = "바이트 비교, SB_BEATS, burst 검사"
+coverage_text = "`cp_beats` one/few, `cp_len` 1/2-15"
+tests = ["top/dma_short_job_test"]
+checks = ["SB_DATA", "SB_BEATS", "AXI_LEN"]
+covers = ["cg_job.cp_beats", "cg_burst.cp_len"]
+status = "done"
+
+[[features]]
+id = "top.back_to_back_jobs"
+section = "top"
+title = "연속 작업, idle로 복귀"
+tests_text = "모든 다중 작업 테스트"
+checks_text = "작업마다 AP_CTRL.idle"
+coverage_text = ""
+tests = ["top/dma_short_job_test", "top/dma_rand_test"]
+checks = ["JOB_TIMEOUT"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.no_idle_bus"
+section = "top"
+title = "실행 중인 job이 없을 때 m00 버스 활동 없음 (레지스터만 쓰는 동안, job 사이)"
+tests_text = "레지스터 테스트와 모든 작업 테스트"
+checks_text = "`dma_scoreboard`: job 없이 온 AR/AW/W/B (SB_NO_JOB_BUS). 레지스터 테스트에서는 m00 활동 0"
+coverage_text = ""
+tests = [
+  "top/dma_reg_reset_test",
+  "top/dma_reg_bitbash_test",
+  "top/dma_smoke_test",
+  "top/dma_short_job_test",
+  "top/dma_rand_test",
+  "top/dma_4kb_cross_test",
+  "top/dma_backpressure_test",
+  "top/dma_irq_test",
+  "top/dma_size_edge_test",
+  "top/dma_long_job_test",
+]
+checks = ["SB_NO_JOB_BUS"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.checker_selftest"
+section = "top"
+title = "검사기 자체 시험: 결함을 하나씩 일부러 넣으면 그 결함을 잡아야 하는 검사가 오류를 냄"
+tests_text = "dma_checker_test"
+checks_text = "주입 5종(R 데이터 비트 뒤집기, 같은 src 안 다른 8B 읽기, 마지막 쓰기 burst +8B, 쓰기 전 / 쓴 뒤 레지스터 읽기 관찰값 bit31)마다 예상 ID(SB_WDATA, SB_DATA, SB_OVERRUN, REG_RESET, REG_BITBASH)가 1회 이상. `dma_error_catcher`가 열린 주입 창의 예상 ID만 낮추고, 하나라도 0회면 SELFTEST_MISS. `+SELFTEST_NO_INJECT`면 FAIL해야 함 (음성 대조, 회귀에 없음)"
+coverage_text = ""
+tests = ["top/dma_checker_test"]
+checks = ["SELFTEST_MISS"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.zero_or_unaligned_size"
+section = "top"
+title = "transfer_byte = 0 / 8의 배수가 아님"
+tests_text = "(테스트 안 함)"
+checks_text = "SW가 금지함. 0이면 RTL이 멈춤"
+coverage_text = ""
+tests = []
+checks = []
+covers = []
+status = "planned"
+status_note = "사양 밖"
+
+[[features]]
+id = "top.start_busy"
+section = "top"
+title = "작업 중 start는 ap_ctrl_hs대로 기다렸다가 지금 작업 뒤에 실행되고, idle에서 쓴 start는 항상 실행됨"
+tests_text = "dma_start_busy_test"
+checks_text = "B·C 실행 여부(JOB_TIMEOUT), AP_CTRL 예측(REG_STATUS), RDMA만 먼저 읽기(SB_AR_LIST), 고아 W(SB_NO_JOB_BUS), idle에서 start를 받으면 나감(a_ap_idle_leave)"
+coverage_text = ""
+tests = ["top/dma_start_busy_test"]
+checks = ["REG_STATUS", "JOB_TIMEOUT", "SB_AR_LIST", "SB_NO_JOB_BUS", "APCTRL_SVA", "SVA:a_ap_idle_leave", "SCENARIO_MISS"]
+covers = []
+status = "blocked"
+bug = "BUG-005"
+hypothesis = "H1"
+
+[[features]]
+id = "top.auto_restart"
+section = "top"
+title = "auto_restart: 끝날 때마다 같은 설정으로 다시 시작하고, 끄면 지금 반복 뒤 멈춤"
+tests_text = "dma_auto_restart_test"
+checks_text = "반복 실행(JOB_TIMEOUT, 창 안 AR 수), AP_CTRL 예측(REG_STATUS), a_ap_idle_leave"
+coverage_text = ""
+tests = ["top/dma_auto_restart_test"]
+checks = ["REG_STATUS", "JOB_TIMEOUT", "APCTRL_SVA", "SVA:a_ap_idle_leave", "SCENARIO_MISS"]
+covers = []
+status = "blocked"
+bug = "BUG-005"
+hypothesis = "H2"
+
+[[features]]
+id = "top.busy_reg_write"
+section = "top"
+title = "작업 중 레지스터 10개 쓰기: 크기/주소는 지금 작업에 영향 없음, VALUE_TO_ADD는 그 뒤 R로 받는 beat부터 적용(NOTE-002), ISR 쓰기 무시"
+tests_text = "dma_busy_reg_write_test"
+checks_text = "beat별 기대값(predictor가 VALUE 변경 위치 k로 예측, SB_WDATA/SB_DATA), 레지스터 읽기 예측(REG_BITBASH, IRQ)"
+coverage_text = ""
+tests = ["top/dma_busy_reg_write_test"]
+checks = ["SB_WDATA", "SB_DATA", "REG_BITBASH", "IRQ", "SCENARIO_MISS"]
+covers = []
+status = "done"
+hypothesis = "H3"
+
+[[features]]
+id = "top.no_idle_wait"
+section = "top"
+title = "done 직후 idle 확인 없이 다음 start (다음 작업 레지스터는 작업 중에 씀)"
+tests_text = "dma_busy_reg_write_test (dma_pipeline_vseq)"
+checks_text = "다음 작업 결과(SB_DATA), 완료(JOB_TIMEOUT), AP_CTRL 예측(REG_STATUS)"
+coverage_text = ""
+tests = ["top/dma_busy_reg_write_test"]
+checks = ["SB_DATA", "JOB_TIMEOUT", "REG_STATUS"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.in_place"
+section = "top"
+title = "제자리 복사(dst=src)와 dst<src 겹침 (dst>src 겹침은 사양 밖)"
+tests_text = "dma_busy_reg_write_test"
+checks_text = "결과 메모리(SB_DATA), W 데이터(SB_WDATA), 앞뒤 guard(SB_OVERRUN)"
+coverage_text = ""
+tests = ["top/dma_busy_reg_write_test"]
+checks = ["SB_DATA", "SB_WDATA", "SB_OVERRUN"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.irq_ready"
+section = "top"
+title = "IER=ready만 / 둘 다, GIE 0/1: ISR[1], AP_CTRL.ready(COR), interrupt 핀"
+tests_text = "dma_irq_ready_test"
+checks_text = "ISR과 interrupt 핀 예측(IRQ), AP_CTRL.ready(REG_STATUS)"
+coverage_text = ""
+tests = ["top/dma_irq_ready_test"]
+checks = ["IRQ", "REG_STATUS", "SCENARIO_MISS"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.ap_ctrl_hs"
+section = "top"
+title = "ap_ctrl_hs handshake SVA (bind, 모든 top 테스트)"
+tests_text = "top의 PASS 테스트 전부 (bind라 모든 테스트에 붙음)"
+checks_text = "start는 ready까지 유지, ready/done 1사이클, idle 배타, idle에서 start를 받으면 나감, start 없이 시작 안 함"
+coverage_text = ""
+tests = ["top/dma_smoke_test", "top/dma_short_job_test", "top/dma_rand_test", "top/dma_4kb_cross_test", "top/dma_backpressure_test", "top/dma_irq_test", "top/dma_size_edge_test", "top/dma_long_job_test", "top/dma_reset_test", "top/dma_irq_ready_test", "top/dma_busy_reg_write_test"]
+checks = ["SVA:a_ap_start_hold", "SVA:a_ap_ready_with_start", "SVA:a_ap_ready_pulse", "SVA:a_ap_done_pulse", "SVA:a_ap_idle_excl", "SVA:a_ap_idle_leave", "SVA:a_ap_idle_fall_start", "APCTRL_SVA"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.reset_mid_test"
+section = "top"
+title = "테스트 중간 리셋: 리셋 뒤 버스 조용, 레지스터 리셋 값, interrupt 0, 다음 작업 정상"
+tests_text = "dma_reset_test"
+checks_text = "리셋 뒤 버스 활동(SB_NO_JOB_BUS), 리셋 값(REG_RESET), interrupt(IRQ), 리셋 중 AXI-Lite VALID(RESET_BUSY), 리셋 설정(RESET_CFG, NO_VIF), 중단 job 처리(SB_DUP_JOB)"
+coverage_text = ""
+tests = ["top/dma_reset_test"]
+checks = ["SB_NO_JOB_BUS", "REG_RESET", "IRQ", "RESET_BUSY", "RESET_CFG", "NO_VIF", "SB_DUP_JOB", "SCENARIO_MISS"]
+covers = []
+status = "done"
+
+[[features]]
+id = "top.reset_mid_job"
+section = "top"
+title = "데이터 경로에 beat가 남은 채 리셋"
+tests_text = "dma_reset_mid_job_test"
+checks_text = "리셋 뒤 start 전 버스 활동(SB_NO_JOB_BUS), 다음 작업 데이터(SB_DATA), WLAST(AXI_WLAST)"
+coverage_text = ""
+tests = ["top/dma_reset_mid_job_test"]
+checks = ["SB_NO_JOB_BUS", "SB_DATA", "AXI_WLAST", "SCENARIO_MISS"]
+covers = []
+status = "blocked"
+bug = "BUG-006"
+hypothesis = "H4"
+
+[[features]]
+id = "top.size_128mib"
+section = "top"
+title = "transfer_byte >= 128MiB (사용자 결정: 사양 안)"
+tests_text = "dma_size_128mib_test"
+checks_text = "첫 burst 길이(SB_AR_LIST/SB_AW_LIST), 이른 done(IRQ, REG_STATUS), 멈춤(JOB_TIMEOUT)"
+coverage_text = ""
+tests = ["top/dma_size_128mib_test"]
+checks = ["SB_AR_LIST", "SB_AW_LIST", "IRQ", "REG_STATUS", "JOB_TIMEOUT", "SCENARIO_MISS"]
+covers = []
+status = "blocked"
+bug = "BUG-007"
+hypothesis = "H5"
+
+[[features]]
+id = "top.aw_wait_after_job"
+section = "top"
+title = "앞 작업 뒤 AWREADY 지연"
+tests_text = "dma_aw_wait_after_job_test"
+checks_text = "WLAST 위치(AXI_WLAST), 완료(JOB_TIMEOUT)"
+coverage_text = ""
+tests = ["top/dma_aw_wait_after_job_test"]
+checks = ["AXI_WLAST", "JOB_TIMEOUT", "SCENARIO_MISS"]
+covers = []
+status = "blocked"
+bug = "BUG-003"
+hypothesis = "H6"
+
+[[features]]
+id = "top.slow_b"
+section = "top"
+title = "B 지연 > W burst 간격 (AW/W 지연 없음)"
+tests_text = "dma_slow_b_test"
+checks_text = "WLAST 위치(AXI_WLAST), 완료(JOB_TIMEOUT), 끝나지 않은 job(SB_UNFINISHED)"
+coverage_text = ""
+tests = ["top/dma_slow_b_test"]
+checks = ["AXI_WLAST", "JOB_TIMEOUT", "SB_UNFINISHED", "SCENARIO_MISS"]
+covers = []
+status = "blocked"
+bug = "BUG-004"
+hypothesis = "H7"
+
+[[hypotheses]]
+id = "H1"
+title = "작업 중에 start를 쓰면 그 start는 실행되지 않고(RDMA만 끝난 구간이면 RDMA만 다음 src를 읽어 그 데이터가 AW 없이 W로 나감), 그 뒤의 start도 리셋 전까지 무시됨"
+evidence = [
+  "HW/dma_ip/dma_wrapper.v:138",
+  "HW/dma_ip/dma_wrapper.v:143",
+  "HW/dma_ip/dma_wrapper.v:155",
+  "HW/dma_ip/dma_ip_control_s_axi.v:308",
+  "HW/dma_ip/dma_ip_control_s_axi.v:310",
+  "HW/dma_ip/RDMA/rdma.v:292",
+  "HW/dma_ip/RDMA/rdma.v:307",
+  "HW/dma_ip/WDMA/wdma.v:310",
+  "HW/dma_ip/WDMA/wdma.v:325",
+  "HW/dma_ip/WDMA/wdma.v:497",
+]
+test = "top/dma_start_busy_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "BUG-005"
+
+[[hypotheses]]
+id = "H2"
+title = "auto_restart를 켜면 한 번만 돌고, ap_start가 1에 묶여 그 뒤의 start가 리셋 전까지 무시됨 (결과는 H1과 같고 내부 상태는 다름)"
+evidence = [
+  "HW/dma_ip/dma_ip_control_s_axi.v:311",
+  "HW/dma_ip/dma_ip_control_s_axi.v:284",
+  "HW/dma_ip/dma_ip_control_s_axi.v:363",
+  "HW/dma_ip/dma_wrapper.v:134",
+  "HW/dma_ip/dma_wrapper.v:138",
+]
+test = "top/dma_auto_restart_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "BUG-005"
+
+[[hypotheses]]
+id = "H3"
+title = "작업 중 VALUE_TO_ADD를 바꾸면 그 뒤에 R로 받는 beat부터 새 값이 더해짐 (size/ptr과 달리 start에서 잡지 않음)"
+evidence = [
+  "HW/dma_ip/dma_ip_top.v:302",
+  "HW/dma_ip/axis_adder.v:109",
+  "HW/dma_ip/RDMA/rdma.v:276",
+]
+test = "top/dma_busy_reg_write_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "NOTE-002"
+
+[[hypotheses]]
+id = "H4"
+title = "작업 도중 리셋하면 리셋이 없는 adder에 남은 beat(BUG-001로 하나 중복)가 start 없이 AW 없는 W로 나가고, 그 뒤 모든 작업의 dst가 그만큼 밀림 (done은 정상)"
+evidence = [
+  "HW/dma_ip/axis_adder.v:38",
+  "HW/dma_ip/axis_adder.v:99",
+  "HW/dma_ip/axis_adder.v:123",
+  "HW/dma_ip/dma_ip_top.v:301",
+  "HW/dma_ip/dma_ip_top.v:338",
+  "HW/peri_ip/skid_buffer.v:69",
+  "HW/dma_ip/WDMA/wdma.v:497",
+]
+test = "top/dma_reset_mid_job_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "BUG-006"
+
+[[hypotheses]]
+id = "H5"
+title = "RDMA/WDMA beat 카운터가 24비트([31-NUM_SAMPLE_IN_AXI_DATA:0])라 transfer_byte >= 2^27(128MiB)이면 beat 수가 (bytes>>3) mod 2^24로 잘림 (일부만 복사하고 done, 나머지 0이면 AR/AW 없이 멈춤)"
+evidence = [
+  "HW/dma_ip/RDMA/rdma.v:206",
+  "HW/dma_ip/RDMA/rdma.v:332",
+  "HW/dma_ip/RDMA/rdma.v:348",
+  "HW/dma_ip/RDMA/rdma.v:401",
+  "HW/dma_ip/WDMA/wdma.v:213",
+  "HW/dma_ip/WDMA/wdma.v:350",
+  "HW/dma_ip/WDMA/wdma.v:420",
+]
+test = "top/dma_size_128mib_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "BUG-007"
+
+[[hypotheses]]
+id = "H6"
+title = "burst 끝에서 is_aw_req_pre가 pop 전 상태를 봐서 W FSM이 RUN에 남고, AW FIFO가 빈 채 이전 AWLEN으로 셈 (BUG-002가 첫 작업과 그 뒤에 다르게 나타남)"
+evidence = [
+  "HW/dma_ip/WDMA/wdma.v:465",
+  "HW/dma_ip/WDMA/wdma.v:474",
+  "HW/dma_ip/WDMA/wdma.v:486",
+  "HW/dma_ip/WDMA/wdma.v:502",
+  "HW/dma_ip/WDMA/wdma.v:506",
+  "HW/dma_ip/WDMA/wdma.v:537",
+  "HW/peri_ip/sync_fifo.v:99",
+]
+test = "top/dma_aw_wait_after_job_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "BUG-003"
+
+[[hypotheses]]
+id = "H7"
+title = "B 응답이 W burst보다 느리면 W->B FIFO(깊이 4)가 찬 채 burst가 끝나 B 항목이 버려지고, AWREADY가 빨라도 WLAST 오류와 멈춤"
+evidence = [
+  "HW/dma_ip/WDMA/wdma.v:465",
+  "HW/dma_ip/WDMA/wdma.v:537",
+  "HW/dma_ip/WDMA/wdma.v:568",
+  "HW/peri_ip/sync_fifo.v:114",
+]
+test = "top/dma_slow_b_test"
+status = "confirmed"  # open | confirmed | refuted
+bug = "BUG-004"
+
+[[bugs]]
+id = "BUG-001"
+kind = "bug"
+status = "wont_fix"  # open | wont_fix | closed
+title = "리셋 후 s_ready=0일 때 받아들인 beat를 skid buffer가 중복 출력"
+known_fail = ["fifo/unit_post_reset_test", "fifo_d4/unit_post_reset_test", "skid/unit_post_reset_test"]
+waiver = "영구 known_fail (RTL 담당자 결정, 2026-11-14)"
+
+[[bugs]]
+id = "BUG-002"
+kind = "bug"
+status = "open"
+title = "WDMA가 AW 수락 전에 W beat를 보내고, 그 beat를 잘못 세어 멈춤"
+known_fail = ["top/dma_aw_backpressure_test"]
+waiver = "2026-11-18 release 판정, 조건부 출시"
+
+[[bugs]]
+id = "NOTE-001"
+kind = "note"
+status = "open"
+title = "WDMA burst 주소 계산 루프의 100 MHz 타이밍 여유가 거의 없음"
+known_fail = []
+waiver = ""
+
+[[bugs]]
+id = "BUG-003"
+kind = "bug"
+status = "open"
+title = "작업을 한 번 끝낸 뒤에는 W FSM이 RUN에 남아, AW보다 먼저 온 W beat를 이전 burst 길이로 셈"
+known_fail = ["top/dma_aw_wait_after_job_test"]
+waiver = ""
+
+[[bugs]]
+id = "BUG-004"
+kind = "bug"
+status = "open"
+title = "B 응답이 W burst보다 느리면 W->B FIFO(깊이 4)가 넘쳐 B 항목이 버려지고, WLAST가 틀리며 멈춤"
+known_fail = ["top/dma_slow_b_test"]
+waiver = ""
+
+[[bugs]]
+id = "BUG-005"
+kind = "bug"
+status = "open"
+title = "ap_start를 에지로만 받아, 작업 중 start나 auto_restart 뒤에는 리셋 전까지 다시 시작하지 않음"
+known_fail = ["top/dma_start_busy_test", "top/dma_auto_restart_test"]
+waiver = ""
+
+[[bugs]]
+id = "BUG-006"
+kind = "bug"
+status = "open"
+title = "작업 도중 리셋하면 adder에 남은 beat가 리셋 뒤 AW 없는 W로 나가고, 그 뒤 모든 작업의 데이터가 밀림"
+known_fail = ["top/dma_reset_mid_job_test"]
+waiver = ""
+
+[[bugs]]
+id = "BUG-007"
+kind = "bug"
+status = "open"
+title = "RDMA/WDMA beat 카운터가 24비트라 128MiB 이상 전송하면 일부만 복사하고 done, 128MiB 배수면 멈춤"
+known_fail = ["top/dma_size_128mib_test"]
+waiver = ""
+
+[[bugs]]
+id = "NOTE-002"
+kind = "note"
+status = "open"
+title = "작업 중 VALUE_TO_ADD를 바꾸면 그 뒤에 R로 받는 beat부터 새 값이 더해짐"
+known_fail = []
+waiver = ""
+
+[[bugs]]
+id = "NOTE-003"
+kind = "note"
+status = "open"
+title = "리셋이 걸린 뒤 2사이클 동안 DUT의 WVALID가 1로 남음"
+known_fail = []
+waiver = ""

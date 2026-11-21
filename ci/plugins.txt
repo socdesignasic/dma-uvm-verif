@@ -1,10 +1,13 @@
 # dma-uvm CI용 Jenkins 플러그인 (ci/start-jenkins.ps1이 설치)
-configuration-as-code
-job-dsl
-workflow-aggregator
-git
-junit
-htmlpublisher
-timestamper
+# 직접 쓰는 플러그인의 버전을 고정 (2026-11-19에 설치돼 있던 버전). 의존 플러그인은 설치할 때 정해짐.
+# 버전을 올릴 때는 이 파일을 고치면 start-jenkins.ps1이 다시 설치함.
+configuration-as-code:2147.v8a_8d38668c72
+job-dsl:3752.vb_199526b_20c3
+workflow-aggregator:608.v67378e9d3db_1
+workflow-multibranch:842.v3a_b_59b_57b_e6e
+git:5.11.0
+junit:1458.1460.vd53b_087eeb_2c
+htmlpublisher:429
+timestamper:1.30
 # P4: Jenkins를 MCP 서버로 사용 (endpoint /mcp-server/mcp)
-mcp-server
+mcp-server:0.228.vfa_37b_2127d97

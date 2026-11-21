@@ -5,7 +5,7 @@ signoff.py - verif/SIGNOFF.md의 sign-off 기준을 결과 파일로 판정합�
   python scripts/signoff.py --level smoke      # push마다 (CI smoke)
   python scripts/signoff.py --level nightly    # 매일 밤 (CI full): seed 5개, 시스템 타이밍
   python scripts/signoff.py --level release    # 출시 판정: nightly + 보드 시험 (사람이 보드를 연결해 돌린 결과)
-  python scripts/signoff.py --level smoke --root C:/Users/abc/jenkins/home/workspace/dma-uvm   # 다른 checkout의 out/ 판정
+  python scripts/signoff.py --level smoke --root <JENKINS_HOME>/workspace/dma-uvm   # 다른 checkout의 out/ 판정
 
 기준마다 PASS / FAIL / N/A(이 수준에서는 보지 않음)를 내고, 모두 PASS면 종료 코드 0.
 결과: out/signoff/signoff.json, out/signoff/signoff.md
@@ -19,6 +19,10 @@ import sys                                                  # 종료 코드, 출
 import time                                                 # 시각
 from collections import Counter                             # seed 수 세기
 from pathlib import Path                                    # 경로 처리
+
+from common import hw_hash                                  # HW/ 내용 해시 (scripts/common.py)
+from plan_check import check as plan_check                  # plan.toml <-> 코드 검사
+from plan_check import load as load_plan                    # plan.toml 읽기
 
 for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 오류 출력마다
     _s.reconfigure(encoding="utf-8", errors="replace")      # UTF-8로 (Windows 코드페이지 949 대비)
@@ -47,7 +51,8 @@ def main() -> int:                                          # 진입점
     at_least = lambda level: LEVELS.index(lv) >= LEVELS.index(level)  # 이 수준 이상에서만 보는 기준인지
     cfg = load(root / "verif" / "sim_cfg.json")             # TB와 테스트 목록, known_fail
     bugs_md = (root / "verif" / "BUGS.md").read_text(encoding="utf-8")  # 버그 문서
-    vplan = (root / "verif" / "vplan" / "vplan.md").read_text(encoding="utf-8")  # 검증 계획
+    pc = plan_check(root)                                   # 검증 계획 검사 (S2, S9)
+    plan = load_plan(root)                                  # plan.toml (승인된 RTL 해시)
     res = []                                                # 기준별 결과
 
     def add(cid: str, title: str, ok, detail: str, evidence: str = ""):  # 결과 한 줄 추가
@@ -68,21 +73,24 @@ def main() -> int:                                          # 진입점
     # S2. 예상된 실패(XFAIL)는 모두 known_fail에 있고, 그 known_fail은 BUGS.md에 같은 ID로 기록돼 있음
     kf = {(tb, t): why for tb, v in cfg["tbs"].items() for t, why in (v.get("known_fail") or {}).items()}  # (TB, 테스트) -> 사유
     xf = [r for r in runs if r["verdict"] == "XFAIL"]       # 예상된 실패
-    unknown_xf = [f"{r['tb']}/{r['test']}" for r in xf if (r["tb"], r["test"]) not in kf]  # known_fail에 없는 XFAIL
-    ids = {re.match(r"(BUG-\d+)", why)[1] if re.match(r"(BUG-\d+)", why) else None for why in kf.values()}  # 사유의 버그 ID
-    no_doc = sorted(str(i) for i in ids if i is None or not re.search(rf"^## {i}\b", bugs_md, re.M))  # BUGS.md에 없는 ID
-    add("S2", "XFAIL = 승인된 known_fail만 (BUGS.md에 ID와 상태 기록)", not unknown_xf and not no_doc,  # 판정
-        f"xfail={len(xf)} known_fail={len(kf)} ids={sorted(i for i in ids if i)}" +  # 요약
-        (f" unknown={unknown_xf}" if unknown_xf else "") + (f" undocumented={no_doc}" if no_doc else ""),  # 문제
-        "verif/sim_cfg.json, verif/BUGS.md")                # 근거 파일
+    unknown_xf = [f"{r['tb']}/{r['test']}" for r in xf if (r["tb"], r["test"]) not in kf]  # 승인되지 않은 XFAIL
+    kf_probs = [p for p in pc["problems"] if p.startswith("KNOWN_FAIL")]  # known_fail <-> plan.toml bugs <-> BUGS.md
+    add("S2", "XFAIL = 승인된 known_fail만 (plan.toml bugs, BUGS.md와 일치)", not unknown_xf and not kf_probs,
+        f"xfail={len(xf)} known_fail={len(kf)}" + (f" unknown={unknown_xf}" if unknown_xf else "") +
+        "".join(f"; {p}" for p in kf_probs[:4]),
+        "verif/sim_cfg.json, verif/plan.toml, verif/BUGS.md (plan_check.py)")
 
     # S3. 등록된 모든 테스트가 최소 seed 수 이상 실행됨
-    reg = {(tb, t) for tb in {r["tb"] for r in runs} for t in cfg["tbs"][tb].get("tests", [])}  # 실행한 TB의 등록 테스트
+    expect_tbs = {tb for tb, v in cfg["tbs"].items() if v.get("tests")}  # 회귀에 나와야 하는 TB (테스트가 등록된 모든 TB)
+    seen_tbs = {r["tb"] for r in runs}                      # 회귀에 실제로 나온 TB
+    missing_tbs = sorted(expect_tbs - seen_tbs - set(bfail))  # 통째로 빠진 TB (빌드 실패는 S1에서 봄)
+    reg = {(tb, t) for tb in expect_tbs for t in cfg["tbs"][tb].get("tests", [])}  # 등록된 모든 (TB, 테스트)
     cnt = Counter((r["tb"], r["test"]) for r in runs)       # (TB, 테스트) -> 실행 수
-    short = sorted(f"{tb}/{t}={cnt[(tb, t)]}" for tb, t in reg if cnt[(tb, t)] < MIN_SEEDS[lv])  # 모자란 테스트
-    add("S3", f"등록된 모든 테스트 실행, 테스트당 seed {MIN_SEEDS[lv]}개 이상", bool(reg) and not short,  # 판정
-        f"tests={len(reg)} min_seeds={min(cnt[k] for k in reg) if reg else 0}" + (f" short={short[:6]}" if short else ""),  # 요약
-        "out/regress/*/summary.json")                       # 근거 파일
+    short = sorted(f"{tb}/{t}={cnt[(tb, t)]}" for tb, t in reg if tb in seen_tbs and cnt[(tb, t)] < MIN_SEEDS[lv])  # seed가 모자란 테스트
+    add("S3", f"등록된 모든 TB와 테스트 실행, 테스트당 seed {MIN_SEEDS[lv]}개 이상", bool(reg) and not short and not missing_tbs,
+        f"tbs={len(seen_tbs)}/{len(expect_tbs)} tests={len(reg)} min_seeds={min(cnt[k] for k in reg) if reg else 0}" +
+        (f" missing_tbs={missing_tbs}" if missing_tbs else "") + (f" short={short[:6]}" if short else ""),
+        "out/regress/*/summary.json")
 
     # S4. 기능 커버리지 100% (회귀에 나온 TB마다, xcrg 병합 보고서)
     scores, nocov = {}, []                                  # TB -> 점수, 보고서 없는 TB
@@ -128,19 +136,54 @@ def main() -> int:                                          # 진입점
         "out/board/<시각>/result.json, out/board_c/<시각>/result.json")  # 근거 파일
 
     # S9. 검증 계획: 등록된 모든 테스트가 vplan.md에 있고, 실패(❌) 행은 버그 ID를 가짐
-    all_tests = {t for v in cfg["tbs"].values() for t in v.get("tests", [])}  # 등록된 모든 테스트 이름
-    short_name = lambda t: re.sub(r"^(unit|dma)_|_test$", "", t)  # vplan이 쓰는 짧은 이름 (dma_rand_test -> rand)
-    top_at = vplan.find("\n## P2")                          # unit 절(P1)과 top 절(P2 이후)의 경계
-    part = {"unit": vplan[:top_at], "top": vplan[top_at:]}  # 짧은 이름은 자기 절에서만 찾음 (smoke가 양쪽에 있음)
-    top_tests = set(cfg["tbs"].get("top", {}).get("tests", []))  # top 테스트 이름
-    unplanned = sorted(t for t in all_tests if t not in vplan  # 전체 이름도
-                       and not re.search(rf"(?<![\w-]){re.escape(short_name(t))}(?![\w-])",  # 짧은 이름도
-                                         part["top" if t in top_tests else "unit"]))  # 자기 절에 없으면
-    open_rows = [ln for ln in vplan.splitlines() if "❌" in ln]  # 실패로 표시된 행
-    bad_rows = [ln[:60] for ln in open_rows if not re.search(r"BUG-\d+", ln)]  # 버그 ID가 없는 실패 행
-    add("S9", "vplan: 모든 테스트가 계획에 있고, ❌ 행은 버그 ID를 가짐", not unplanned and not bad_rows,  # 판정
-        f"tests={len(all_tests)} open_rows={len(open_rows)}" + (f" unplanned={unplanned}" if unplanned else "") +  # 요약
-        (f" no_bug_id={bad_rows}" if bad_rows else ""), "verif/vplan/vplan.md")  # 근거 파일
+    plan_probs = [p for p in pc["problems"] if not p.startswith("KNOWN_FAIL")]  # 계획 자체의 문제 (known_fail은 S2)
+    add("S9", "검증 계획: 모든 테스트가 기능에 있고, blocked 기능은 버그/가설을 가리키며, vplan.md가 최신",
+        not plan_probs,
+        f"features={pc.get('features')} tests={pc.get('tests_planned')}/{pc.get('tests_registered')}" +
+        "".join(f"; {p}" for p in plan_probs[:4]),
+        "verif/plan.toml, verif/vplan/vplan.md (plan_check.py)")
+
+    # S10: 근거 파일의 출처가 하나의 커밋이고, FPGA와 보드 결과가 그 RTL을 썼는지
+    approved = (plan.get("rtl") or {}).get("approved_hw_hash")  # 승인된 HW/ 해시
+    prov = []                                               # (근거 이름, 커밋, 수정 여부, HW 해시)
+    for n, s in sums.items():                               # 회귀 요약마다
+        if s:
+            p_ = s.get("provenance") or {}
+            prov.append((f"regress/{n}", p_.get("commit"), p_.get("dirty"), p_.get("hw_hash")))
+            for c in s.get("commits", []):                  # 실행마다 쓴 커밋
+                if c != p_.get("commit"):
+                    prov.append((f"regress/{n} run", None if c == "None" else c, None, None))
+    for name, r in (("fpga/ooc", ooc), ("fpga/system", sysr if at_least("nightly") else None)):
+        if r:
+            p_ = r.get("provenance") or {}
+            prov.append((name, p_.get("commit"), p_.get("dirty"), p_.get("hw_hash")))
+    commits = {c for _, c, _, _ in prov}                    # 쓰인 커밋
+    no_prov = sorted(n for n, c, _, _ in prov if not c)     # 출처가 없는 근거 (예전 스크립트로 만든 결과)
+    dirty = sorted(n for n, _, d, _ in prov if d)           # 수정된 checkout에서 만든 근거
+    board_bad = []                                          # 보드 결과가 승인된 RTL의 비트스트림이 아님
+    if at_least("release"):
+        xsas = {}                                           # XSA sha256 -> 그 시스템 빌드의 HW 해시
+        for d in sorted((out / "fpga").glob("system*/result.json")):
+            r = load(d) or {}
+            for k, v in (r.get("artifacts") or {}).items():
+                if k.endswith(".xsa"):
+                    xsas[v.get("sha256")] = (r.get("provenance") or {}).get("hw_hash")
+        for name, b in (("board", bj), ("board_c", bc)):
+            if b and xsas.get(b.get("xsa_sha256")) != approved:
+                board_bad.append(f"{name}: xsa {str(b.get('xsa_sha256'))[:12]} not from an approved-RTL system build")
+    ok10 = bool(prov) and len(commits) == 1 and not no_prov and not board_bad and not (dirty and at_least("release"))
+    add("S10", "근거 파일이 모두 같은 커밋에서 나옴 (release는 수정 없는 checkout, 보드는 승인된 RTL의 XSA)", ok10,
+        f"commits={sorted(str(c)[:8] for c in commits)}" + (f" no_provenance={no_prov}" if no_prov else "") +
+        (f" dirty={dirty}" if dirty else "") + "".join(f"; {x}" for x in board_bad),
+        "summary.json provenance, out/fpga/*/result.json, out/board*/<시각>/result.json")
+
+    # S11: RTL이 사람이 승인한 그대로인지
+    now_hw = hw_hash(root)                                  # 지금 checkout의 HW/ 해시
+    ev_hw = {h for _, _, _, h in prov if h}                 # 근거 파일들이 본 HW/ 해시
+    add("S11", "HW/ 내용 해시 = plan.toml의 승인된 값 (checkout과 모든 근거)",
+        bool(approved) and now_hw == approved and ev_hw <= {approved},
+        f"approved={approved} checkout={now_hw} evidence={sorted(ev_hw)}",
+        "verif/plan.toml [rtl], scripts/common.py hw_hash")
 
     # 판정과 열린 버그(waiver) 목록
     judged = [r for r in res if r["status"] != "N/A"]       # 이 수준에서 본 기준

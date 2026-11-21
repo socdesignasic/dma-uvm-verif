@@ -7,55 +7,55 @@
   "plan": {
     "adder": {
       "unit_backpressure_test": 1,
-      "unit_fixed_side_test": 1,
+      "unit_fixed_value_test": 1,
       "unit_post_reset_test": 1,
       "unit_rand_test": 1,
       "unit_smoke_test": 1,
-      "unit_trickle_test": 1
+      "unit_sparse_input_test": 1
     },
     "adder8": {
       "unit_backpressure_test": 1,
-      "unit_fixed_side_test": 1,
+      "unit_fixed_value_test": 1,
       "unit_post_reset_test": 1,
       "unit_rand_test": 1,
       "unit_smoke_test": 1,
-      "unit_trickle_test": 1
+      "unit_sparse_input_test": 1
     },
     "fifo": {
       "unit_backpressure_test": 1,
-      "unit_fixed_side_test": 1,
+      "unit_fixed_value_test": 1,
       "unit_post_reset_test": 1,
       "unit_rand_test": 1,
       "unit_smoke_test": 1,
-      "unit_trickle_test": 1
+      "unit_sparse_input_test": 1
     },
     "fifo_d4": {
       "unit_backpressure_test": 1,
-      "unit_fixed_side_test": 1,
+      "unit_fixed_value_test": 1,
       "unit_post_reset_test": 1,
       "unit_rand_test": 1,
       "unit_smoke_test": 1,
-      "unit_trickle_test": 1
+      "unit_sparse_input_test": 1
     },
     "skid": {
       "unit_backpressure_test": 1,
-      "unit_fixed_side_test": 1,
+      "unit_fixed_value_test": 1,
       "unit_post_reset_test": 1,
       "unit_rand_test": 1,
       "unit_smoke_test": 1,
-      "unit_trickle_test": 1
+      "unit_sparse_input_test": 1
     },
     "top": {
-      "dma_4kb_test": 1,
+      "dma_4kb_cross_test": 1,
       "dma_aw_backpressure_test": 1,
       "dma_backpressure_test": 1,
       "dma_irq_test": 3,
-      "dma_large_test": 1,
+      "dma_long_job_test": 1,
       "dma_rand_test": 4,
       "dma_reg_bitbash_test": 1,
       "dma_reg_reset_test": 1,
       "dma_size_edge_test": 2,
-      "dma_small_test": 1,
+      "dma_short_job_test": 1,
       "dma_smoke_test": 1
     }
   },

@@ -1,0 +1,343 @@
+{
+  "updated": "2026-11-21 15:40:46",
+  "reason": "TB 2단계: ap_ctrl_hs SVA 7개 + APCTRL_SVA, SCENARIO_MISS, RESET_BUSY/RESET_CFG/NO_VIF, SB_DUP_JOB 등 새 검사 보호. 억제 구문 증가 없음. 사용자 승인 2026-11-21",
+  "commit": "20593be9c3782addc6f5b41e427157b023d152b1",
+  "checks": {
+    "$error": 1,
+    "$fatal": 1,
+    "ADAPTER": 1,
+    "APCTRL_SVA": 7,
+    "AXIL_RESP": 3,
+    "AXIL_SVA": 3,
+    "AXI_4KB": 1,
+    "AXI_ALIGN": 1,
+    "AXI_BURST": 1,
+    "AXI_LEN": 1,
+    "AXI_PENDING": 1,
+    "AXI_RD_UNINIT": 1,
+    "AXI_SIZE": 1,
+    "AXI_SVA": 2,
+    "AXI_WLAST": 1,
+    "IRQ": 5,
+    "JOB_TIMEOUT": 1,
+    "NO_CFG": 1,
+    "NO_KIND": 1,
+    "NO_VIF": 4,
+    "PRED_UNSUPPORTED": 1,
+    "RAND": 1,
+    "REG_BITBASH": 1,
+    "REG_RESET": 1,
+    "REG_STATUS": 1,
+    "RESET_BUSY": 2,
+    "RESET_CFG": 1,
+    "SB_AR_LIST": 1,
+    "SB_AW_LIST": 1,
+    "SB_BEATS": 1,
+    "SB_DATA": 1,
+    "SB_DUP_JOB": 1,
+    "SB_LEFTOVER": 1,
+    "SB_MISMATCH": 1,
+    "SB_NO_JOBS": 1,
+    "SB_NO_JOB_BUS": 1,
+    "SB_NO_TRAFFIC": 1,
+    "SB_OVERRUN": 1,
+    "SB_RANGE": 1,
+    "SB_SRC": 1,
+    "SB_UNEXPECTED": 1,
+    "SB_UNFINISHED": 1,
+    "SB_WDATA": 1,
+    "SB_WSTRB": 1,
+    "SCENARIO_MISS": 33,
+    "SELFTEST_MISS": 1,
+    "SVA:a_ap_done_pulse": 1,
+    "SVA:a_ap_idle_excl": 1,
+    "SVA:a_ap_idle_fall_start": 1,
+    "SVA:a_ap_idle_leave": 1,
+    "SVA:a_ap_ready_pulse": 1,
+    "SVA:a_ap_ready_with_start": 1,
+    "SVA:a_ap_start_hold": 1,
+    "SVA:a_ar_hold": 1,
+    "SVA:a_aw_hold": 1,
+    "SVA:a_b_hold": 1,
+    "SVA:a_bind_never_high": 1,
+    "SVA:a_data_known": 1,
+    "SVA:a_hold": 1,
+    "SVA:a_irq_known": 1,
+    "SVA:a_never_high": 1,
+    "SVA:a_r_hold": 1,
+    "SVA:a_ready_known": 1,
+    "SVA:a_valid_known": 2,
+    "SVA:a_w_hold": 1,
+    "TEST": 1,
+    "TIMEOUT": 1,
+    "VR_SVA": 4
+  },
+  "suppressions": {
+    "report_catcher": 1
+  },
+  "sites": {
+    "$error": [
+      "verif/selftest/xsim_msgs_tb.sv:28"
+    ],
+    "$fatal": [
+      "verif/selftest/xsim_msgs_tb.sv:30"
+    ],
+    "ADAPTER": [
+      "verif/vip/axil/axil_reg_adapter.svh:24"
+    ],
+    "APCTRL_SVA": [
+      "verif/top/dma_ap_ctrl_sva.sv:26",
+      "verif/top/dma_ap_ctrl_sva.sv:31",
+      "verif/top/dma_ap_ctrl_sva.sv:36",
+      "verif/top/dma_ap_ctrl_sva.sv:41",
+      "verif/top/dma_ap_ctrl_sva.sv:46",
+      "verif/top/dma_ap_ctrl_sva.sv:56",
+      "verif/top/dma_ap_ctrl_sva.sv:61"
+    ],
+    "AXIL_RESP": [
+      "verif/vip/axil/axil_monitor.svh:37",
+      "verif/vip/axil/axil_reg_base_seq.svh:19",
+      "verif/vip/axil/axil_reg_base_seq.svh:30"
+    ],
+    "AXIL_SVA": [
+      "verif/vip/axil/axil_if.sv:36",
+      "verif/vip/axil/axil_if.sv:39",
+      "verif/vip/axil/axil_if.sv:41"
+    ],
+    "AXI_4KB": [
+      "verif/vip/axi4_slave/axi4_slave_monitor.svh:36"
+    ],
+    "AXI_ALIGN": [
+      "verif/vip/axi4_slave/axi4_slave_monitor.svh:32"
+    ],
+    "AXI_BURST": [
+      "verif/vip/axi4_slave/axi4_slave_monitor.svh:28"
+    ],
+    "AXI_LEN": [
+      "verif/vip/axi4_slave/axi4_slave_monitor.svh:34"
+    ],
+    "AXI_PENDING": [
+      "verif/vip/axi4_slave/axi4_slave_driver.svh:224"
+    ],
+    "AXI_RD_UNINIT": [
+      "verif/vip/axi4_slave/axi4_slave_driver.svh:95"
+    ],
+    "AXI_SIZE": [
+      "verif/vip/axi4_slave/axi4_slave_monitor.svh:30"
+    ],
+    "AXI_SVA": [
+      "verif/vip/axi4_slave/axi4_if.sv:52",
+      "verif/vip/axi4_slave/axi4_if.sv:60"
+    ],
+    "AXI_WLAST": [
+      "verif/vip/axi4_slave/axi4_slave_driver.svh:198"
+    ],
+    "IRQ": [
+      "verif/top/model/dma_predictor.svh:378",
+      "verif/top/model/dma_predictor.svh:381",
+      "verif/top/model/dma_predictor.svh:402",
+      "verif/top/model/dma_predictor.svh:404",
+      "verif/top/model/dma_predictor.svh:406"
+    ],
+    "JOB_TIMEOUT": [
+      "verif/top/seq/dma_job_vseq.svh:219"
+    ],
+    "NO_CFG": [
+      "verif/unit/env/unit_env.svh:16"
+    ],
+    "NO_KIND": [
+      "verif/unit/test/unit_base_test.svh:26"
+    ],
+    "NO_VIF": [
+      "verif/top/env/dma_vsqr.svh:27",
+      "verif/vip/axi4_slave/axi4_slave_agent.svh:22",
+      "verif/vip/axil/axil_agent.svh:18",
+      "verif/vip/stream/stream_agent.svh:21"
+    ],
+    "PRED_UNSUPPORTED": [
+      "verif/top/model/dma_predictor.svh:493"
+    ],
+    "RAND": [
+      "verif/vip/stream/stream_rand_seq.svh:34"
+    ],
+    "REG_BITBASH": [
+      "verif/top/model/dma_predictor.svh:375"
+    ],
+    "REG_RESET": [
+      "verif/top/model/dma_predictor.svh:370"
+    ],
+    "REG_STATUS": [
+      "verif/top/model/dma_predictor.svh:385"
+    ],
+    "RESET_BUSY": [
+      "verif/top/seq/dma_reset_vseq.svh:45",
+      "verif/top/seq/dma_reset_vseq.svh:56"
+    ],
+    "RESET_CFG": [
+      "verif/top/seq/dma_reset_vseq.svh:32"
+    ],
+    "SB_AR_LIST": [
+      "verif/top/scoreboard/dma_scoreboard.svh:161"
+    ],
+    "SB_AW_LIST": [
+      "verif/top/scoreboard/dma_scoreboard.svh:160"
+    ],
+    "SB_BEATS": [
+      "verif/top/scoreboard/dma_scoreboard.svh:240"
+    ],
+    "SB_DATA": [
+      "verif/top/scoreboard/dma_scoreboard.svh:209"
+    ],
+    "SB_DUP_JOB": [
+      "verif/top/scoreboard/dma_scoreboard.svh:95"
+    ],
+    "SB_LEFTOVER": [
+      "verif/unit/scoreboard/unit_scoreboard.svh:55"
+    ],
+    "SB_MISMATCH": [
+      "verif/unit/scoreboard/unit_scoreboard.svh:45"
+    ],
+    "SB_NO_JOBS": [
+      "verif/top/scoreboard/dma_scoreboard.svh:279"
+    ],
+    "SB_NO_JOB_BUS": [
+      "verif/top/scoreboard/dma_scoreboard.svh:257"
+    ],
+    "SB_NO_TRAFFIC": [
+      "verif/unit/scoreboard/unit_scoreboard.svh:53"
+    ],
+    "SB_OVERRUN": [
+      "verif/top/scoreboard/dma_scoreboard.svh:219"
+    ],
+    "SB_RANGE": [
+      "verif/top/scoreboard/dma_scoreboard.svh:168"
+    ],
+    "SB_SRC": [
+      "verif/top/scoreboard/dma_scoreboard.svh:231"
+    ],
+    "SB_UNEXPECTED": [
+      "verif/unit/scoreboard/unit_scoreboard.svh:38"
+    ],
+    "SB_UNFINISHED": [
+      "verif/top/scoreboard/dma_scoreboard.svh:263"
+    ],
+    "SB_WDATA": [
+      "verif/top/scoreboard/dma_scoreboard.svh:180"
+    ],
+    "SB_WSTRB": [
+      "verif/top/scoreboard/dma_scoreboard.svh:187"
+    ],
+    "SCENARIO_MISS": [
+      "verif/top/test/dma_auto_restart_test.svh:73",
+      "verif/top/test/dma_auto_restart_test.svh:75",
+      "verif/top/test/dma_auto_restart_test.svh:88",
+      "verif/top/test/dma_auto_restart_test.svh:99",
+      "verif/top/test/dma_auto_restart_test.svh:101",
+      "verif/top/test/dma_auto_restart_test.svh:172",
+      "verif/top/test/dma_aw_wait_after_job_test.svh:42",
+      "verif/top/test/dma_aw_wait_after_job_test.svh:52",
+      "verif/top/test/dma_aw_wait_after_job_test.svh:56",
+      "verif/top/test/dma_aw_wait_after_job_test.svh:65",
+      "verif/top/test/dma_aw_wait_after_job_test.svh:66",
+      "verif/top/test/dma_busy_reg_write_test.svh:181",
+      "verif/top/test/dma_busy_reg_write_test.svh:228",
+      "verif/top/test/dma_busy_reg_write_test.svh:255",
+      "verif/top/test/dma_busy_reg_write_test.svh:283",
+      "verif/top/test/dma_busy_reg_write_test.svh:312",
+      "verif/top/test/dma_irq_ready_test.svh:90",
+      "verif/top/test/dma_irq_ready_test.svh:173",
+      "verif/top/test/dma_reset_mid_job_test.svh:78",
+      "verif/top/test/dma_reset_mid_job_test.svh:85",
+      "verif/top/test/dma_reset_mid_job_test.svh:102",
+      "verif/top/test/dma_reset_mid_job_test.svh:104",
+      "verif/top/test/dma_reset_test.svh:220",
+      "verif/top/test/dma_size_128mib_test.svh:63",
+      "verif/top/test/dma_size_128mib_test.svh:65",
+      "verif/top/test/dma_slow_b_test.svh:40",
+      "verif/top/test/dma_start_busy_test.svh:64",
+      "verif/top/test/dma_start_busy_test.svh:73",
+      "verif/top/test/dma_start_busy_test.svh:77",
+      "verif/top/test/dma_start_busy_test.svh:84",
+      "verif/top/test/dma_start_busy_test.svh:108",
+      "verif/top/test/dma_start_busy_test.svh:118",
+      "verif/top/test/dma_start_busy_test.svh:192"
+    ],
+    "SELFTEST_MISS": [
+      "verif/top/test/dma_checker_test.svh:92"
+    ],
+    "SVA:a_ap_done_pulse": [
+      "verif/top/dma_ap_ctrl_sva.sv:39"
+    ],
+    "SVA:a_ap_idle_excl": [
+      "verif/top/dma_ap_ctrl_sva.sv:44"
+    ],
+    "SVA:a_ap_idle_fall_start": [
+      "verif/top/dma_ap_ctrl_sva.sv:59"
+    ],
+    "SVA:a_ap_idle_leave": [
+      "verif/top/dma_ap_ctrl_sva.sv:54"
+    ],
+    "SVA:a_ap_ready_pulse": [
+      "verif/top/dma_ap_ctrl_sva.sv:34"
+    ],
+    "SVA:a_ap_ready_with_start": [
+      "verif/top/dma_ap_ctrl_sva.sv:29"
+    ],
+    "SVA:a_ap_start_hold": [
+      "verif/top/dma_ap_ctrl_sva.sv:24"
+    ],
+    "SVA:a_ar_hold": [
+      "verif/vip/axi4_slave/axi4_if.sv:54"
+    ],
+    "SVA:a_aw_hold": [
+      "verif/vip/axi4_slave/axi4_if.sv:55"
+    ],
+    "SVA:a_b_hold": [
+      "verif/vip/axil/axil_if.sv:34"
+    ],
+    "SVA:a_bind_never_high": [
+      "verif/selftest/xsim_msgs_tb.sv:42"
+    ],
+    "SVA:a_data_known": [
+      "verif/vip/stream/stream_if.sv:53"
+    ],
+    "SVA:a_hold": [
+      "verif/vip/stream/stream_if.sv:41"
+    ],
+    "SVA:a_irq_known": [
+      "verif/vip/axil/axil_if.sv:40"
+    ],
+    "SVA:a_never_high": [
+      "verif/selftest/xsim_msgs_tb.sv:21"
+    ],
+    "SVA:a_r_hold": [
+      "verif/vip/axil/axil_if.sv:37"
+    ],
+    "SVA:a_ready_known": [
+      "verif/vip/stream/stream_if.sv:49"
+    ],
+    "SVA:a_valid_known": [
+      "verif/vip/axi4_slave/axi4_if.sv:58",
+      "verif/vip/stream/stream_if.sv:45"
+    ],
+    "SVA:a_w_hold": [
+      "verif/vip/axi4_slave/axi4_if.sv:56"
+    ],
+    "TEST": [
+      "verif/top/test/dma_busy_reg_write_test.svh:100"
+    ],
+    "TIMEOUT": [
+      "verif/unit/test/unit_base_test.svh:62"
+    ],
+    "VR_SVA": [
+      "verif/vip/stream/stream_if.sv:43",
+      "verif/vip/stream/stream_if.sv:47",
+      "verif/vip/stream/stream_if.sv:51",
+      "verif/vip/stream/stream_if.sv:55"
+    ],
+    "suppress:report_catcher": [
+      "verif/top/test/dma_error_catcher.svh"
+    ]
+  },
+  "files": 98
+}

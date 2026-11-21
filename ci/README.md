@@ -31,8 +31,8 @@ git에도 들어가지 않습니다.
 | 매일 02:00 무렵 | full | 모든 TB의 모든 테스트 × seed 5개 + 기능 커버리지 HTML |
 | "Build with Parameters" | 둘 중 선택 | `MODE`, `SEEDS` 직접 지정 (smoke에서 `SEEDS`를 주면 계획 대신 예전 방식: unit 전부 + top smoke 묶음) |
 
-단계: Plan → Lint → Unit regression → Top regression → Plan coverage (계획을 쓴 smoke) → Coverage → Sign-off
-(`verif/SIGNOFF.md` 기준, 결과는 `out/signoff/signoff.md`로 보관).
+단계와 실패 기준은 [docs/FLOW.md](../docs/FLOW.md) 2절의 표에 있습니다. Sign-off 결과는
+`out/signoff/signoff.md`로 보관합니다.
 
 계획은 `python scripts/ml_regress.py analyze --save-plan verif/regress_plan.json`으로 다시 만듭니다
 (테스트를 추가하거나 covergroup을 바꾼 뒤). 계획에 없는 테스트는 경고와 함께 `--seeds` 수로 돌기 때문에 빠지지 않습니다.
@@ -61,6 +61,19 @@ python scripts/sim.py run --tb top --test dma_rand_test --seed 123456
 - Jenkins: 모든 빌드에서 `ooc`를 실행합니다. nightly/full (또는 `BITSTREAM=true`)이면 `system`도 실행합니다.
   `.bit`/`.xsa`는 보관되고 **fingerprint**가 남아서, 보드 이미지가 어느 빌드와 커밋에서 나왔는지 추적할 수 있습니다.
 - 보드 프로그래밍은 수동입니다 (XSA로 Vitis 또는 Hardware Manager 사용). CI에는 보드가 연결돼 있지 않습니다.
+
+## 보드 시험 (`scripts/board.py`, `scripts/board_c.py`)
+
+CI에서는 돌지 않습니다. 보드를 이 PC에 USB로 연결하고(JTAG와 UART) 사람이 돌리며, 결과는 release
+sign-off의 S8 근거가 됩니다. 보드에 올린 XSA가 승인된 RTL로 만든 시스템 빌드인지는 S10이 확인합니다.
+
+| 명령 | 하는 일 | 결과 |
+|---|---|---|
+| `python scripts/fpga.py system --part xc7z010clg400-1` | 손에 있는 Zybo Z7-10용 비트스트림과 XSA를 만듦 | `out/fpga/system_xc7z010/` |
+| `python scripts/board.py --xsa out/fpga/system_xc7z010/design_1_wrapper.xsa` | xsdb(JTAG)로 PS를 초기화하고 DMA 레지스터를 직접 써서 DDR에서 복사를 돌린 뒤 바이트마다 비교 (`ci/vivado/board_test.tcl`) | `out/board/<시각>/result.json` |
+| `python scripts/board_c.py --com COM7` | Vitis(xsct)로 `fw/dma_board_test/dma_board_test.c`를 빌드해 ARM에서 실행. DDR mailbox와 UART 출력이 서로 맞는지도 봄 | `out/board_c/<시각>/result.json` |
+
+필요한 것: Vivado 2022.2(`XILINX_VIVADO`), Vitis 2022.2(`XILINX_VITIS`, `board_c.py`만), 보드의 USB-UART 포트 번호.
 
 ## 알려진 로그 메시지: "Selected Git installation does not exist. Using Default"
 무해합니다. 일부러 그대로 뒀습니다.

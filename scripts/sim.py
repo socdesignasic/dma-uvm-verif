@@ -12,8 +12,12 @@ Jenkins, vivado MCP 서버, 사람이 모두 이 스크립트를 부르므로
   python scripts/sim.py cov-report --tb ref_adder_fixed
 
 출력 (out/ 아래):
-  out/<tb>/build/                 xvlog/xelab 로그 + snapshot
-  out/<tb>/runs/<test>_<seed>/    run.log, result.json, junit.xml [, wave.wdb]
+  out/<tb>/build/                         xvlog/xelab 로그 + snapshot, build.json (입력 해시)
+  out/<tb>/runs/[<group>/]<test>_<seed>/  run.log, result.json, junit.xml [, wave.wdb]
+    (--group은 regress.py가 회귀 이름으로 넘김. 단일 실행은 group 없이 runs/ 바로 아래)
+
+결과 파일마다 출처(커밋, 수정 여부, HW/ 해시, 빌드 입력 해시)를 남깁니다.
+--no-build일 때 소스나 define이 지난 빌드와 다르면 다시 빌드합니다 (--isolate 병렬 실행이면 거부).
 
 종료 코드: 0 = 결과가 기대와 맞음 (PASS, 또는 "expect": "fail"이면 XFAIL),
            1 = 테스트 결과 불일치, 2 = 빌드/도구 오류.
@@ -22,47 +26,26 @@ from __future__ import annotations                          # 타입 힌트를 �
 
 import argparse                                             # 명령줄 인자 파싱
 import json                                                 # sim_cfg.json, result.json 읽기/쓰기
-import os                                                   # 환경 변수, OS 종류 확인
 import random                                               # 랜덤 seed 생성
 import re                                                   # 정규식 (로그 파싱)
-import shutil                                               # 디렉터리 복사/삭제, 실행 파일 찾기
-import subprocess                                           # Vivado 도구 실행
+import shutil                                               # 디렉터리 복사/삭제
 import sys                                                  # 종료 코드와 표준 출력
 import time                                                 # 실행 시간 측정, 시각 문자열
 from pathlib import Path                                    # 경로 처리
 from xml.sax.saxutils import escape                         # JUnit XML 특수문자 이스케이프
 
-# 한글 출력이 Jenkins/MCP(UTF-8로 읽음)에서 깨지지 않도록 출력 인코딩을 UTF-8로 고정
-for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 표준 오류 각각
-    if hasattr(_s, "reconfigure"):                          # reconfigure를 지원하면 (Python 3.7+)
-        _s.reconfigure(encoding="utf-8", errors="replace")  # UTF-8로 바꾸고, 못 바꾸는 문자는 ?로
+from common import ROOT, files_hash, provenance, run_cmd, setup_utf8  # 공통 모듈 (scripts/common.py)
+from common import tool as _tool                            # 도구 찾기 (XILINX_VIVADO -> PATH -> 기본 위치)
 
-ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트 (scripts/의 상위)
+setup_utf8()                                                # 한글 출력이 Jenkins/MCP에서 깨지지 않게 UTF-8로 고정
+
 CFG_PATH = ROOT / "verif" / "sim_cfg.json"                  # 테스트벤치 설정 파일 경로
 OUT = ROOT / "out"                                          # 결과 출력 디렉터리
+SRC_EXT = {".sv", ".svh", ".v", ".vh"}                      # incdir 안에서 빌드 입력으로 보는 확장자
 
 
-# --------------------------------------------------------------------------- #
-# 도구 찾기
-# --------------------------------------------------------------------------- #
-def vivado_bin(cfg: dict) -> Path:                          # Vivado bin 디렉터리를 찾는 함수
-    """XILINX_VIVADO 환경 변수 -> PATH -> 기본 설치 위치 순으로 찾음."""   # 함수 설명
-    env = os.environ.get("XILINX_VIVADO")                   # XILINX_VIVADO 환경 변수 읽기
-    if env and (Path(env) / "bin").is_dir():                # 설정돼 있고 bin 폴더가 있으면
-        return Path(env) / "bin"                            # 그 bin 사용
-    found = shutil.which("xvlog")                           # PATH에서 xvlog 찾기
-    if found:                                               # 찾았으면
-        return Path(found).parent                           # 그 폴더 사용
-    default = Path(f"C:/Xilinx/Vivado/{cfg.get('vivado_version', '2022.2')}/bin")  # 기본 설치 위치 (버전은 sim_cfg.json에서)
-    if default.is_dir():                                    # 있으면
-        return default                                      # 그 폴더 사용
-    sys.exit("ERROR: Vivado not found. Set XILINX_VIVADO or add Vivado/bin to PATH.")  # 못 찾으면 오류로 종료
-
-
-def tool(cfg: dict, name: str) -> str:                      # 도구 실행 파일 경로를 돌려주는 함수
-    b = vivado_bin(cfg)                                     # Vivado bin 디렉터리
-    exe = b / (name + ".bat") if os.name == "nt" else b / name  # Windows면 .bat wrapper, 아니면 실행 파일 그대로
-    return str(exe)                                         # 문자열로 반환
+def tool(cfg: dict, name: str) -> str:                      # 도구 실행 파일 경로 (예전 호출 모양 유지)
+    return _tool(name)                                      # common.tool로 위임
 
 
 # --------------------------------------------------------------------------- #
@@ -104,27 +87,24 @@ def get_tb(cfg: dict, name: str) -> dict:                   # 이름으로 TB �
     return cfg["tbs"][name]                                 # TB 설정 반환
 
 
-def win_cmdline(cmd: list[str]) -> str:                     # 명령 목록을 Windows 명령줄 문자열로 바꾸는 함수
-    """Windows의 Vivado 도구는 .bat wrapper라서, cmd.exe가 따옴표 없는 인자를
-    '=' ',' ';'에서 나눔 (예: UVM_TESTNAME=foo -> 'UVM_TESTNAME' 'foo'). 그래서 따옴표로 감쌈."""
-    out = []                                                # 결과 인자 목록
-    for c in cmd:                                           # 인자마다
-        # 역슬래시 경로는 XSim이 만드는 C 문자열 안에 들어가 ("\U", "\D" ...)
-        # 코드 커버리지 elaboration을 깨뜨림. 슬래시(/)는 어디서나 동작함.
-        c = c.replace("\\", "/")                            # 역슬래시를 슬래시로
-        out.append(f'"{c}"' if re.search(r'[\s=,;&()^]', c) and not c.startswith('"') else c)  # 공백이나 특수문자가 있으면 큰따옴표로 감쌈
-    return " ".join(out)                                    # 공백으로 이어 붙여 반환
-
-
 def run_tool(cmd: list[str], cwd: Path, timeout: int | None = None) -> int:  # 도구를 실행하고 종료 코드를 돌려주는 함수
-    line = win_cmdline(cmd) if os.name == "nt" else cmd     # Windows면 명령줄 문자열, 아니면 목록 그대로
-    print(">>", line if isinstance(line, str) else " ".join(line), flush=True)  # 실행할 명령을 출력
-    try:                                                    # 시간 제한 처리
-        p = subprocess.run(line, cwd=cwd, timeout=timeout)  # 도구 실행 (끝날 때까지 대기)
-        return p.returncode                                 # 종료 코드 반환
-    except subprocess.TimeoutExpired:                       # 시간 초과면
-        print(f"ERROR: timeout after {timeout}s", flush=True)  # 오류 출력
-        return 124                                          # timeout 관례 종료 코드 124
+    """시간 초과면 cmd.exe만이 아니라 xsim까지 프로세스 트리 전체를 종료하고 124 (common.run_cmd)."""
+    return run_cmd(cmd, cwd, timeout=timeout)               # 공통 실행 함수
+
+
+def build_inputs(cfg: dict, tb_name: str, defines: list[str]) -> tuple[dict, list[str], str]:  # 빌드 입력과 그 해시
+    """filelist로 소스 목록과 define을 모으고, 빌드 결과에 영향을 주는 모든 입력의 해시를 계산.
+    입력 = filelist 파일들, 나열된 소스, incdir 안의 소스(`include되는 클래스 파일), define, top, UVM 여부."""
+    tb = get_tb(cfg, tb_name)                               # TB 설정
+    fl = {"files": [], "incdirs": [], "defines": []}        # 파일/incdir/define 모을 곳
+    for f in tb["filelists"]:                               # TB의 filelist마다
+        parse_filelist(ROOT / f, fl)                        # 읽어서 모음
+    all_defs = fl["defines"] + tb.get("defines", []) + defines  # filelist + sim_cfg + 명령줄 define 합침
+    srcs = set(fl["files"]) | {str(ROOT / f) for f in tb["filelists"]}  # 소스 + filelist 자신
+    for d in fl["incdirs"]:                                 # incdir마다 (include되는 파일은 filelist에 없음)
+        srcs |= {str(p) for p in Path(d).iterdir() if p.is_file() and p.suffix in SRC_EXT}  # 그 폴더의 소스
+    h = files_hash(sorted(srcs), all_defs + [tb["top"], f"uvm={bool(tb.get('uvm'))}"])  # 내용 + 설정 해시
+    return fl, all_defs, h                                  # 목록, define, 해시
 
 
 def count_errors(log: Path) -> list[str]:                   # 로그에서 도구 오류 줄을 모으는 함수
@@ -144,10 +124,7 @@ def build(cfg: dict, tb_name: str, defines: list[str], cov: bool, wave: bool) ->
         shutil.rmtree(bdir, ignore_errors=True)             # 지움
     bdir.mkdir(parents=True, exist_ok=True)                 # 빌드 디렉터리 생성
 
-    fl = {"files": [], "incdirs": [], "defines": []}        # 파일/incdir/define 모을 곳
-    for f in tb["filelists"]:                               # TB의 filelist마다
-        parse_filelist(ROOT / f, fl)                        # 읽어서 모음
-    all_defs = fl["defines"] + tb.get("defines", []) + defines  # filelist + sim_cfg + 명령줄 define 합침
+    fl, all_defs, inputs_hash = build_inputs(cfg, tb_name, defines)  # 소스 목록, define, 입력 해시
 
     cmd = [tool(cfg, "xvlog"), "--sv", "--log", str(bdir / "xvlog.log")]  # xvlog 명령: SystemVerilog, 로그 파일
     if tb.get("uvm"):                                       # UVM TB면
@@ -181,7 +158,9 @@ def build(cfg: dict, tb_name: str, defines: list[str], cov: bool, wave: bool) ->
         sys.exit(2)                                         # 종료 코드 2
 
     meta = {"tb": tb_name, "snapshot": snap, "defines": all_defs, "cov": cov, "wave": wave,  # 빌드 정보 기록용 사전
-            "files": fl["files"], "time": time.strftime("%Y-%m-%d %H:%M:%S")}  # 파일 목록과 빌드 시각
+            "files": fl["files"], "time": time.strftime("%Y-%m-%d %H:%M:%S"),  # 파일 목록과 빌드 시각
+            "inputs_hash": inputs_hash, "cli_defines": defines,  # 빌드 입력 해시 (--no-build 때 비교), 명령줄 define
+            "provenance": provenance()}                     # 빌드할 때의 커밋, 수정 여부, HW/ 해시
     (bdir / "build.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")  # build.json으로 저장
     print(f"BUILD OK: {tb_name} -> {snap}")                 # 성공 메시지
     return bdir                                             # 빌드 디렉터리 반환
@@ -192,12 +171,19 @@ def build(cfg: dict, tb_name: str, defines: list[str], cov: bool, wave: bool) ->
 # --------------------------------------------------------------------------- #
 UVM_CNT = re.compile(r"^\s*(UVM_INFO|UVM_WARNING|UVM_ERROR|UVM_FATAL)\s*:\s*(\d+)\s*$", re.M)  # UVM 보고 요약의 "UVM_ERROR :  N" 줄 정규식
 UVM_MSG = re.compile(r"^(UVM_ERROR|UVM_FATAL)\s+(?!:).*$", re.M)  # 요약 줄 "UVM_ERROR :  N"은 건너뜀
+# XSim 자체 메시지 (verif/selftest/xsim_msgs_tb.sv로 2022.2에서 확인한 형식):
+#   $error                       -> "Error: <메시지>"          (종료 코드 0)
+#   $fatal                       -> "Fatal: <메시지>"          (종료 코드 0, 그 자리에서 $finish)
+#   동작 블록 없는 immediate assert -> "Error: Assertion violation"
+#   동작 블록 없는 concurrent assert -> "ERROR: Assertion failed." (종료 코드 1)
+#   $warning                     -> "Warning: <메시지>"        (판정에 넣지 않음)
+TOOL_ERR = re.compile(r"^\s*(ERROR|FATAL_ERROR|Error|Fatal):")  # 시뮬레이터 자체 오류 줄
 
 
 def judge(log: Path, uvm: bool, rc: int) -> dict:           # 실행 로그로 PASS/FAIL을 판정하는 함수
     txt = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""  # 로그 읽기 (없으면 빈 문자열)
     counts = {k: int(v) for k, v in UVM_CNT.findall(txt)}  # 마지막 요약을 사용
-    tool_errs = [l for l in txt.splitlines() if re.match(r"^\s*(ERROR|FATAL_ERROR):", l)]  # 시뮬레이터 자체 오류 줄
+    tool_errs = [l for l in txt.splitlines() if TOOL_ERR.match(l)]  # 시뮬레이터 자체 오류 줄 ($error, $fatal, assertion 포함)
     msg_lines = [m.group(0) for m in UVM_MSG.finditer(txt)]  # UVM_ERROR / UVM_FATAL 메시지 줄
     reasons = []                                            # 실패 이유 목록
     if rc == 124:                                           # 시간 초과였으면
@@ -205,7 +191,7 @@ def judge(log: Path, uvm: bool, rc: int) -> dict:           # 실행 로그로 P
     elif rc != 0:                                           # 그 밖의 0이 아닌 종료 코드면
         reasons.append(f"xsim exit code {rc}")              # 이유 추가
     if tool_errs:                                           # 시뮬레이터 오류 줄이 있으면
-        reasons.append(f"{len(tool_errs)} simulator ERROR lines")  # 이유 추가
+        reasons.append(f"{len(tool_errs)} simulator Error/Fatal lines")  # 이유 추가
     if uvm:                                                 # UVM TB면
         if "UVM Report Summary" not in txt:                 # UVM 보고 요약이 없으면 (중간에 끝남)
             reasons.append("no UVM Report Summary (sim did not finish cleanly)")  # 이유 추가
@@ -218,7 +204,7 @@ def judge(log: Path, uvm: bool, rc: int) -> dict:           # 실행 로그로 P
         "status": "FAIL" if reasons else "PASS",            # 이유가 하나라도 있으면 FAIL
         "reasons": reasons,                                 # 실패 이유
         "uvm_counts": counts,                               # 심각도별 개수
-        "first_errors": msg_lines[:10] or tool_errs[:10],   # 첫 오류 줄 최대 10개
+        "first_errors": (msg_lines + tool_errs)[:10],       # 첫 오류 줄 최대 10개 (UVM 먼저, 그다음 XSim)
         "n_uvm_error_lines": len(msg_lines),                # UVM 오류 메시지 줄 수
         "sim_end_time": m.group(1) if m else None,          # 시뮬레이션 끝 시각
     }                                                       # 사전 끝
@@ -243,8 +229,23 @@ def write_junit(path: Path, suite: str, case: str, res: dict, dur: float):  # JU
 def run(cfg: dict, a) -> int:                               # run 명령: 빌드 후 테스트 실행
     tb = get_tb(cfg, a.tb)                                  # TB 설정
     bdir = OUT / a.tb / "build"                             # 빌드 디렉터리
-    if not a.no_build or not (bdir / "build.json").exists():  # --no-build가 아니거나 빌드가 없으면
-        build(cfg, a.tb, a.define, a.cov, a.wave)           # 빌드
+    need = not a.no_build or not (bdir / "build.json").exists()  # --no-build가 아니거나 빌드가 없으면 빌드
+    if not need:                                            # --no-build: 지난 빌드가 지금 소스와 같은지 확인
+        old = json.loads((bdir / "build.json").read_text(encoding="utf-8"))  # 지난 빌드 정보
+        _, _, now = build_inputs(cfg, a.tb, a.define)       # 지금 입력 해시
+        if (a.wave or a.trace) and not old.get("wave"):    # 파형/신호 추적에는 debug 빌드가 필요
+            print(f"INFO: last build of {a.tb} has no debug info; rebuilding for --wave/--trace", flush=True)
+            need = True
+        elif old.get("inputs_hash") != now:                 # 소스, define, 설정 중 하나라도 바뀌었으면
+            if a.isolate:                                   # 병렬 실행 중이면 여기서 다시 빌드하면 서로 지움
+                print(f"ERROR: stale build for {a.tb}: sources or defines changed since "
+                      f"{old.get('time')} (inputs {old.get('inputs_hash')} -> {now}). "
+                      f"Rebuild first: python scripts/sim.py lint --tb {a.tb}", flush=True)
+                return 2                                    # 도구/빌드 오류
+            print(f"INFO: sources or defines changed since the last build of {a.tb}; rebuilding", flush=True)
+            need = True                                     # 다시 빌드
+    if need:                                                # 빌드가 필요하면
+        build(cfg, a.tb, a.define, a.cov, a.wave or bool(a.trace))  # 빌드 (신호 추적도 debug 빌드)
     meta = json.loads((bdir / "build.json").read_text(encoding="utf-8"))  # 빌드 정보 읽기
 
     rc = 0                                                  # 가장 나쁜 종료 코드
@@ -258,9 +259,16 @@ def run(cfg: dict, a) -> int:                               # run 명령: 빌드
     return rc                                               # 종료 코드 반환
 
 
+def run_dir(tb: str, test: str, seed: int, group: str | None = None) -> Path:  # 실행 결과 디렉터리
+    """단일 실행: out/<tb>/runs/<test>_<seed>. 회귀: out/<tb>/runs/<group>/<test>_<seed>.
+    회귀마다 폴더를 나눠, 다른 회귀의 같은 (test, seed)가 서로 덮어쓰거나 커버리지에 섞이지 않게 함."""
+    base = OUT / tb / "runs"                                # 실행 폴더의 뿌리
+    return (base / group if group else base) / f"{test}_{seed}"  # group이 있으면 그 아래
+
+
 def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:  # 테스트 하나를 seed 하나로 실행하는 함수
     test = a.test or tb.get("default_test", "none")         # 테스트 이름 (없으면 TB 기본 테스트)
-    rdir = OUT / a.tb / "runs" / f"{test}_{seed}"           # 실행 결과 디렉터리
+    rdir = run_dir(a.tb, test, seed, a.group)               # 실행 결과 디렉터리 (회귀면 그 이름 아래)
     if rdir.exists():                                       # 이전 결과가 있으면
         shutil.rmtree(rdir, ignore_errors=True)             # 지움
     rdir.mkdir(parents=True)                                # 디렉터리 생성
@@ -280,6 +288,15 @@ def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:  
         tcl = rdir / "wave.tcl"                             # 파형 Tcl 스크립트 경로
         tcl.write_text("log_wave -recursive *\nrun all\nquit\n", encoding="utf-8")  # 모든 신호 기록 후 끝까지 실행
         cmd += ["--wdb", str(rdir / "wave.wdb"), "--tclbatch", str(tcl)]  # 파형 DB와 Tcl 배치 인자
+    elif a.trace:                                           # 지정한 신호만 VCD로 (MCP trace_signals)
+        for t in a.trace:                                   # Tcl에 들어가므로 HDL 경로 모양만 허용
+            if not re.fullmatch(r"/[A-Za-z0-9_/\[\]*.]+", t):
+                sys.exit(f"ERROR: bad --trace object '{t}' (expected an HDL path like /tb_skid/dut/s_valid)")
+        tcl = rdir / "trace.tcl"                            # 신호 추적 Tcl
+        vcd = (rdir / "trace.vcd").as_posix()               # VCD 경로
+        lines = [f"open_vcd {{{vcd}}}"] + [f"log_vcd [get_objects {{{t}}}]" for t in a.trace]  # VCD 열고 신호 등록
+        tcl.write_text("\n".join(lines + ["run all", "close_vcd", "quit"]) + "\n", encoding="utf-8")  # 끝까지 실행 후 닫기
+        cmd += ["--tclbatch", str(tcl)]                     # Tcl 배치로 실행
     else:                                                   # 파형이 필요 없으면
         cmd += ["--runall"]                                 # 끝까지 실행
 
@@ -306,6 +323,9 @@ def run_one(cfg: dict, a, tb: dict, bdir: Path, meta: dict, seed: int) -> int:  
                "XPASS(unexpected)" if expect_fail else res["status"])  # XPASS(예상 밖 통과), 또는 PASS/FAIL
     res.update({"tb": a.tb, "test": test, "seed": seed, "verdict": verdict, "ok": ok,  # 결과에 실행 정보 추가
                 "duration_s": round(dur, 2), "log": str(log),  # 걸린 시간, 로그 경로
+                "run_dir": rdir.relative_to(ROOT).as_posix(), "group": a.group,  # 실행 폴더 (저장소 기준), 회귀 이름
+                "build": {"inputs_hash": meta.get("inputs_hash"), "time": meta.get("time")},  # 어떤 빌드로 돌았는지
+                "provenance": provenance(),                 # 실행할 때의 커밋, 수정 여부, HW/ 해시
                 "rerun": f"python scripts/sim.py run --tb {a.tb} --test {test} --seed {seed}"  # 다시 실행하는 명령
                          + "".join(f" --define {d}" for d in a.define)  # define 인자 포함
                          + "".join(f" --plusarg {q}" for q in a.plusarg)})  # plusarg 인자 포함
@@ -355,8 +375,24 @@ def cov_report(cfg: dict, a) -> int:                        # cov-report 명령:
         ok &= xcrg_ok(rep / "xcrg_code.log", rep / "code")  # 결과 확인
     else:                                                   # 코드 커버리지가 없으면
         print("INFO: build has no code coverage (use run --cov); functional coverage only")  # 안내 출력
-    # 모든 실행의 기능 커버리지를 합침 (covergroup이 있을 때만 존재)
-    runs = sorted((OUT / a.tb / "runs").glob("*/funccov/xsim.covdb"))  # 모든 실행의 기능 커버리지 DB 목록
+    # 기능 커버리지를 합침 (covergroup이 있을 때만 존재)
+    if a.regress:                                           # 지정한 회귀의 실행만 합침
+        runs = []                                           # 합칠 DB 목록
+        for name in a.regress:                              # 회귀 이름마다
+            sj = OUT / "regress" / name / "summary.json"    # 그 회귀의 요약
+            if not sj.exists():                             # 없으면
+                sys.exit(f"ERROR: no regression summary {sj}")  # 오류 종료
+            for r in json.loads(sj.read_text(encoding="utf-8"))["results"]:  # 실행마다
+                if r["tb"] == a.tb and r.get("run_dir"):    # 이 TB의 실행이면
+                    db = ROOT / r["run_dir"] / "funccov" / "xsim.covdb"  # 그 실행의 DB
+                    if db.exists():                         # 있으면
+                        runs.append(db)                     # 목록에 추가
+        runs = sorted(set(runs))                            # 중복 제거, 정렬
+    else:                                                   # 지정하지 않으면 out/<tb>/runs 아래 전부 (예전 동작)
+        runs = sorted((OUT / a.tb / "runs").rglob("funccov/xsim.covdb"))  # 모든 실행의 기능 커버리지 DB 목록
+        if len(runs) > 50:                                  # 많이 쌓였으면 지난 실행이 섞였을 수 있음
+            print(f"WARN: merging {len(runs)} runs under out/{a.tb}/runs (older runs included). "
+                  f"Use --regress <name> to merge one regression only.", flush=True)
     if runs:                                                # 하나라도 있으면
         lst = rep / "funccov_dbs.txt"                       # DB 목록 파일
         lst.write_text("\n".join(p.as_posix() for p in runs), encoding="utf-8")  # 한 줄에 하나씩 기록
@@ -395,9 +431,13 @@ def main() -> int:                                          # 진입점
     p.add_argument("--no-build", action="store_true")       # 빌드 건너뛰기
     p.add_argument("--repeat", type=int, default=1, help="seed N개 실행 (첫째 = --seed, 나머지는 랜덤)")  # 반복 횟수
     p.add_argument("--isolate", action="store_true", help="snapshot 개인 사본에서 실행 (병렬 실행에 안전)")  # 격리 실행
+    p.add_argument("--trace", action="append", default=[],
+                   help="이 HDL 객체를 실행 폴더의 trace.vcd로 남김 (예: /tb_skid/dut/*). debug 빌드가 필요해 필요하면 다시 빌드")
+    p.add_argument("--group", help="실행 폴더를 out/<tb>/runs/<group>/ 아래에 둠 (regress.py가 회귀 이름으로 넘김)")  # 회귀 이름
 
     p = sub.add_parser("cov-report", help="코드 + 기능 커버리지 HTML 생성")  # cov-report 명령
     p.add_argument("--tb", required=True)                   # TB 이름 (필수)
+    p.add_argument("--regress", nargs="+", help="이 회귀(out/regress/<name>)의 실행만 합침")  # 합칠 회귀 이름
 
     a = ap.parse_args()                                     # 인자 파싱
     if a.cmd == "list":                                     # list면

@@ -12,7 +12,10 @@ TB마다 한 번씩 (차례로) 빌드한 뒤, (tb, test, seed) 작업을 스레
 실행마다 `sim.py run --no-build --isolate`를 부르므로 단일 실행과 같은 코드 경로를 타고,
 다만 snapshot의 개인 사본에서 돕니다.
 테스트마다 첫 seed는 --first-seed(재현 가능)이고, 나머지는 랜덤입니다.
-out/regress/<name>/summary.json과 junit.xml을 씁니다.
+out/regress/<name>/summary.json과 junit.xml을 씁니다. 실행 폴더는 out/<tb>/runs/<name>/<test>_<seed>/이고,
+시작할 때 같은 이름의 지난 실행 폴더를 지웁니다. summary.json에는 회귀의 출처(커밋, HW/ 해시)와
+실행들이 쓴 커밋 목록(commits)을 남겨, sign-off가 커밋이 섞인 결과를 거부할 수 있게 합니다.
+커버리지 보고서는 `sim.py cov-report --tb <tb> --regress <name>`으로 이 회귀의 실행만 합칩니다.
 모든 실행이 기대와 맞을 때만 종료 코드 0 (PASS, 또는 알려진 버그는 XFAIL).
 """
 from __future__ import annotations                          # 타입 힌트를 문자열로 지연 평가
@@ -21,6 +24,7 @@ import argparse                                             # 명령줄 인자 �
 import json                                                 # sim_cfg.json, result.json, summary.json 처리
 import os                                                   # CPU 개수 확인
 import random                                               # 랜덤 seed 생성
+import shutil                                               # 지난 회귀 실행 폴더 지우기
 import subprocess                                           # sim.py 실행
 import sys                                                  # 종료 코드, 현재 Python 경로
 import time                                                 # 걸린 시간 측정
@@ -29,11 +33,10 @@ from pathlib import Path                                    # 경로 처리
 from xml.sax.saxutils import escape                         # JUnit XML 특수문자 이스케이프
 
 # 한글 출력이 Jenkins/MCP(UTF-8로 읽음)에서 깨지지 않도록 출력 인코딩을 UTF-8로 고정
-for _s in (sys.stdout, sys.stderr):                         # 표준 출력과 표준 오류 각각
-    if hasattr(_s, "reconfigure"):                          # reconfigure를 지원하면
-        _s.reconfigure(encoding="utf-8", errors="replace")  # UTF-8로 바꾸고, 못 바꾸는 문자는 ?로
+from common import ROOT, provenance, setup_utf8           # 공통 모듈 (scripts/common.py)
 
-ROOT = Path(__file__).resolve().parent.parent               # 저장소 루트
+setup_utf8()                                                # UTF-8 출력
+
 SIM = [sys.executable, str(ROOT / "scripts" / "sim.py")]    # sim.py를 지금 Python으로 실행하는 명령 앞부분
 CFG = json.loads((ROOT / "verif" / "sim_cfg.json").read_text(encoding="utf-8"))  # 테스트벤치 설정 읽기
 UNIT = [k for k, v in CFG["tbs"].items() if v.get("tests") and k != "top"]  # 테스트가 등록된 TB 중 top이 아닌 것 = unit suite
@@ -49,12 +52,13 @@ def build(tb: str, cov: bool) -> bool:                      # TB 하나를 빌�
     return r.returncode != 2                                # 종료 코드 2만 빌드 실패 (1은 테스트 실패)
 
 
-def run_one(tb: str, test: str, seed: int, timeout: int | None) -> dict:  # (tb, test, seed) 실행 하나를 돌리고 결과를 돌려주는 함수
-    cmd = SIM + ["run", "--tb", tb, "--test", test, "--seed", str(seed), "--no-build", "--isolate"]  # 빌드 없이, snapshot 사본으로 격리 실행
+def run_one(tb: str, test: str, seed: int, timeout: int | None, group: str) -> dict:  # (tb, test, seed) 실행 하나를 돌리고 결과를 돌려주는 함수
+    cmd = SIM + ["run", "--tb", tb, "--test", test, "--seed", str(seed), "--no-build", "--isolate",  # 빌드 없이, snapshot 사본으로 격리 실행
+                 "--group", group]                          # 실행 폴더를 out/<tb>/runs/<회귀 이름>/ 아래에
     if timeout:                                             # 시간 제한이 있으면
         cmd += ["--timeout", str(timeout)]                  # 인자 추가
     subprocess.run(cmd, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # 출력은 버리고 실행 (결과는 result.json으로 받음)
-    rj = ROOT / "out" / tb / "runs" / f"{test}_{seed}" / "result.json"  # 결과 파일 경로
+    rj = ROOT / "out" / tb / "runs" / group / f"{test}_{seed}" / "result.json"  # 결과 파일 경로
     if rj.exists():                                         # 있으면
         return json.loads(rj.read_text(encoding="utf-8"))   # 읽어서 반환
     return {"tb": tb, "test": test, "seed": seed, "verdict": "NO_RESULT", "ok": False,  # 없으면 NO_RESULT 결과를 만들어 반환
@@ -105,6 +109,10 @@ def main() -> int:                                          # 진입점
         ap.error("give --tb or --suite")                    # 오류
     out = ROOT / "out" / "regress" / (a.name or a.suite or ("plan" if plan else "custom"))  # 보고서 디렉터리
     out.mkdir(parents=True, exist_ok=True)                  # 생성
+    group = out.name                                        # 실행 폴더 이름 = 회귀 이름
+    for tb in tbs:                                          # 같은 이름의 지난 회귀 실행은 지움 (커버리지에 섞이지 않게)
+        shutil.rmtree(ROOT / "out" / tb / "runs" / group, ignore_errors=True)
+    prov = provenance()                                     # 회귀를 시작할 때의 커밋, 수정 여부, HW/ 해시
     t0 = time.time()                                        # 시작 시각
 
     build_fail = [tb for tb in tbs if not build(tb, a.cov)]  # TB마다 차례로 빌드하고 실패한 TB 목록을 모음
@@ -127,7 +135,7 @@ def main() -> int:                                          # 진입점
     print(f"regress: {len(work)} runs on {len(tbs)} TBs, {a.jobs} parallel jobs", flush=True)  # 작업 수 안내
     results = []                                            # 결과 목록
     with ThreadPoolExecutor(max_workers=a.jobs) as ex:      # 스레드 풀 생성
-        futs = [ex.submit(run_one, tb, test, s, a.timeout) for tb, test, s in work]  # 모든 작업 제출
+        futs = [ex.submit(run_one, tb, test, s, a.timeout, group) for tb, test, s in work]  # 모든 작업 제출
         for i, f in enumerate(as_completed(futs), 1):       # 끝나는 순서대로
             r = f.result()                                  # 결과 받기
             results.append(r)                               # 결과 저장
@@ -139,7 +147,10 @@ def main() -> int:                                          # 진입점
     (out / "summary.json").write_text(json.dumps(           # summary.json 쓰기
         {"tbs": tbs, "runs": len(results), "fail": nfail, "xfail": nxfail, "build_fail": build_fail,  # TB 목록, 실행 수, 실패 수, XFAIL 수, 빌드 실패
          "elapsed_s": round(time.time() - t0, 1),           # 걸린 시간
-         "results": [{k: r.get(k) for k in ("tb", "test", "seed", "verdict", "ok", "reasons", "rerun")}  # 실행마다 핵심 필드만
+         "group": group, "provenance": prov,                # 실행 폴더 이름, 시작할 때의 출처
+         "commits": sorted({str((r.get("provenance") or {}).get("commit")) for r in results}),  # 실행들이 쓴 커밋 (하나여야 함)
+         "hw_hashes": sorted({str((r.get("provenance") or {}).get("hw_hash")) for r in results}),  # 실행들이 본 HW/ 해시
+         "results": [{k: r.get(k) for k in ("tb", "test", "seed", "verdict", "ok", "reasons", "rerun", "run_dir")}  # 실행마다 핵심 필드만
                      for r in results]}, indent=2), encoding="utf-8")  # 정렬된 결과 순서로
 
     for r in results:                                       # 결과마다

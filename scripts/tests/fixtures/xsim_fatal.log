@@ -1,0 +1,18 @@
+#-----------------------------------------------------------
+# xsim v2022.2 (64-bit)
+# Start of session at: Thu Nov 19 22:32:15 2026
+# Current directory: <ROOT>/out/xsim_msgs/build
+# Command line: xsim.exe -log <ROOT>/out/xsim_msgs/runs/judge_selftest/fatal_1/run.log -mode tcl -source {xsim.dir/xsim_msgs_snap/xsim_script.tcl}
+# Log file: <ROOT>/out/xsim_msgs/runs/judge_selftest/fatal_1/run.log
+# Journal file: <ROOT>/out/xsim_msgs/build\xsim.jou
+#-----------------------------------------------------------
+source xsim.dir/xsim_msgs_snap/xsim_script.tcl
+# xsim {xsim_msgs_snap} -testplusarg KIND=fatal -cov_db_dir <ROOT>/out/xsim_msgs/runs/judge_selftest/fatal_1/funccov -cov_db_name fatal_1 -autoloadwcfg -runall -sv_seed 1
+Time resolution is 1 ps
+run -all
+Fatal: selftest fatal message
+Time: 12 ns  Iteration: 0  Process: /xsim_msgs_tb/Initial21_1  Scope: xsim_msgs_tb  File: <ROOT>/verif/tb/selftest/xsim_msgs_tb.sv Line: 27
+$finish called at time : 12 ns
+exit
+WARNING: The Functional Coverage Database has not been updated during simulation. Please recheck testbench to confirm that covergroups are being instantiated correctly and rerun simulation.
+INFO: [Common 17-206] Exiting xsim at Thu Nov 19 22:32:17 2026...

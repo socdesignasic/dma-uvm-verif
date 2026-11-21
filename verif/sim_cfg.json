@@ -6,7 +6,7 @@
     "rtl": {
       "desc": "DUT RTL만 (lint/elaborate 확인, adder datapath)",
       "filelists": [
-        "verif/filelist/rtl.f"
+        "verif/rtl.f"
       ],
       "top": "dma_ip_top",
       "uvm": false
@@ -14,7 +14,7 @@
     "ref_adder": {
       "desc": "사용자 UVM 참고 코드, 원본 DUT (FAIL이 정상: 리셋 극성 버그)",
       "filelists": [
-        "verif/filelist/ref_adder.f"
+        "verif/ref_adder/ref_adder.f"
       ],
       "top": "testbench",
       "uvm": true,
@@ -24,16 +24,24 @@
     "ref_adder_fixed": {
       "desc": "사용자 UVM 참고 코드, 고친 DUT (PASS가 정상)",
       "filelists": [
-        "verif/filelist/ref_adder_fixed.f"
+        "verif/ref_adder/ref_adder_fixed.f"
       ],
       "top": "testbench",
       "uvm": true,
       "default_test": "Test"
     },
+    "xsim_msgs": {
+      "desc": "sim.py 판정 자체 시험 (UVM 없음, +KIND=error|warning|fatal|assert|immediate|bind|none)",
+      "filelists": [
+        "verif/selftest/xsim_msgs.f"
+      ],
+      "top": "xsim_msgs_tb",
+      "uvm": false
+    },
     "fifo": {
       "desc": "sync_fifo 깊이 64 (top과 같음) + 입출력 skid",
       "filelists": [
-        "verif/filelist/fifo.f"
+        "verif/unit/fifo.f"
       ],
       "top": "tb_fifo",
       "uvm": true,
@@ -43,8 +51,8 @@
         "unit_post_reset_test",
         "unit_rand_test",
         "unit_backpressure_test",
-        "unit_trickle_test",
-        "unit_fixed_side_test"
+        "unit_sparse_input_test",
+        "unit_fixed_value_test"
       ],
       "known_fail": {
         "unit_post_reset_test": "BUG-001: 리셋 직후 첫 사이클에 skid_buffer가 s_ready=0인데도 beat를 받음 (beat 중복) - verif/BUGS.md 참고"
@@ -53,7 +61,7 @@
     "fifo_d4": {
       "desc": "sync_fifo 깊이 4 (full/empty 경계 집중 시험)",
       "filelists": [
-        "verif/filelist/fifo.f"
+        "verif/unit/fifo.f"
       ],
       "top": "tb_fifo",
       "uvm": true,
@@ -67,8 +75,8 @@
         "unit_post_reset_test",
         "unit_rand_test",
         "unit_backpressure_test",
-        "unit_trickle_test",
-        "unit_fixed_side_test"
+        "unit_sparse_input_test",
+        "unit_fixed_value_test"
       ],
       "known_fail": {
         "unit_post_reset_test": "BUG-001: 리셋 직후 첫 사이클에 skid_buffer가 s_ready=0인데도 beat를 받음 (beat 중복) - verif/BUGS.md 참고"
@@ -77,7 +85,7 @@
     "skid": {
       "desc": "skid_buffer 64비트",
       "filelists": [
-        "verif/filelist/skid.f"
+        "verif/unit/skid.f"
       ],
       "top": "tb_skid",
       "uvm": true,
@@ -85,10 +93,11 @@
       "tests": [
         "unit_smoke_test",
         "unit_post_reset_test",
+        "unit_single_beat_test",
         "unit_rand_test",
         "unit_backpressure_test",
-        "unit_trickle_test",
-        "unit_fixed_side_test"
+        "unit_sparse_input_test",
+        "unit_fixed_value_test"
       ],
       "known_fail": {
         "unit_post_reset_test": "BUG-001: 리셋 직후 첫 사이클에 skid_buffer가 s_ready=0인데도 beat를 받음 (beat 중복) - verif/BUGS.md 참고"
@@ -97,7 +106,7 @@
     "adder": {
       "desc": "axis_adder 64비트, 32비트 lane 2개 (모듈 기본값) + beat마다 ctrl_constant",
       "filelists": [
-        "verif/filelist/adder.f"
+        "verif/unit/adder.f"
       ],
       "top": "tb_adder",
       "uvm": true,
@@ -107,14 +116,14 @@
         "unit_post_reset_test",
         "unit_rand_test",
         "unit_backpressure_test",
-        "unit_trickle_test",
-        "unit_fixed_side_test"
+        "unit_sparse_input_test",
+        "unit_fixed_value_test"
       ]
     },
     "adder8": {
       "desc": "axis_adder 64비트, 8비트 lane 8개 (dma_ip_top과 같음)",
       "filelists": [
-        "verif/filelist/adder.f"
+        "verif/unit/adder.f"
       ],
       "top": "tb_adder",
       "uvm": true,
@@ -124,8 +133,8 @@
         "unit_post_reset_test",
         "unit_rand_test",
         "unit_backpressure_test",
-        "unit_trickle_test",
-        "unit_fixed_side_test"
+        "unit_sparse_input_test",
+        "unit_fixed_value_test"
       ],
       "defines": [
         "ADDER_BW=8"
@@ -134,26 +143,42 @@
     "top": {
       "desc": "dma_ip_top: AXI-Lite master + AXI4 slave 메모리, RDMA->adder(8비트 lane)->WDMA",
       "filelists": [
-        "verif/filelist/top.f"
+        "verif/top/top.f"
       ],
-      "top": "tb_top",
+      "top": "tb_dma",
       "uvm": true,
       "default_test": "dma_smoke_test",
       "tests": [
         "dma_reg_reset_test",
         "dma_reg_bitbash_test",
         "dma_smoke_test",
-        "dma_small_test",
+        "dma_short_job_test",
         "dma_rand_test",
-        "dma_4kb_test",
+        "dma_4kb_cross_test",
         "dma_backpressure_test",
         "dma_aw_backpressure_test",
         "dma_irq_test",
         "dma_size_edge_test",
-        "dma_large_test"
+        "dma_long_job_test",
+        "dma_checker_test",
+        "dma_reset_test",
+        "dma_irq_ready_test",
+        "dma_busy_reg_write_test",
+        "dma_start_busy_test",
+        "dma_auto_restart_test",
+        "dma_reset_mid_job_test",
+        "dma_size_128mib_test",
+        "dma_aw_wait_after_job_test",
+        "dma_slow_b_test"
       ],
       "known_fail": {
-        "dma_aw_backpressure_test": "BUG-002: wdma가 AW 수락 전에 W beat를 보내지만 W RUN 상태의 beat만 셈 -> WLAST가 늦고 ap_done이 나오지 않음 - verif/BUGS.md 참고"
+        "dma_aw_backpressure_test": "BUG-002: wdma가 AW 수락 전에 W beat를 보내지만 W RUN 상태의 beat만 셈 -> WLAST가 늦고 ap_done이 나오지 않음 - verif/BUGS.md 참고",
+        "dma_aw_wait_after_job_test": "BUG-003: 작업 뒤 AW 지연 시 W FSM이 이전 burst 길이로 셈 - verif/BUGS.md 참고",
+        "dma_slow_b_test": "BUG-004: 느린 B로 W->B FIFO가 넘쳐 B 항목 손실 - verif/BUGS.md 참고",
+        "dma_start_busy_test": "BUG-005: 작업 중 start 뒤 리셋 전까지 start 무시 - verif/BUGS.md 참고",
+        "dma_auto_restart_test": "BUG-005: auto_restart 한 번만 돌고 멈춤 - verif/BUGS.md 참고",
+        "dma_reset_mid_job_test": "BUG-006: 작업 중 리셋 뒤 adder 잔여 beat가 AW 없이 나감 - verif/BUGS.md 참고",
+        "dma_size_128mib_test": "BUG-007: 24비트 beat 카운터로 128MiB 이상 잘림 - verif/BUGS.md 참고"
       }
     }
   }

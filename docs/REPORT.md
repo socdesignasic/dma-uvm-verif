@@ -1,5 +1,8 @@
 # dma_ip 검증·CI/CD 결과 보고서
 
+> 이 보고서는 2026-11-14 시점의 기록이며 고치지 않습니다. 그 뒤의 ML 회귀, sign-off, 보드 시험,
+> release 판정을 포함한 현재 상태는 `verif/SIGNOFF.md`에 있습니다.
+
 2026-11-14 · 원본 문서: claude.ai 문서 "dma_ip 검증·CI/CD 결과 보고서"
 
 ## 요약

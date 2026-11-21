@@ -1,104 +1,174 @@
 #!/usr/bin/env python3
 """
-selftest.py - 실제 stdio MCP로 vivado-mcp에 접속해 모든 도구를 한 번씩 실행합니다.
+selftest.py - 실제 stdio MCP로 vivado-mcp에 접속해 모든 도구를 실행해 봅니다.
 
-  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py          # 빠른 확인 (unit TB)
-  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py --full   # + top 테스트 + 회귀
-
+  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py          # 기본: 모든 도구, BUG-001 신호 추적
+  mcp/.venv/Scripts/python.exe mcp/vivado_mcp/selftest.py --full   # + top 실행, 서버 재시작 뒤 작업 확인,
+                                                                   #   작업 취소, worktree 두 곳 동시 빌드와 잠금
 모든 확인을 통과하면 종료 코드 0.
 """
-from __future__ import annotations                          # 타입 힌트를 문자열로 지연 평가
+from __future__ import annotations
 
-import asyncio                                              # 비동기 실행 (MCP 클라이언트)
-import json                                                 # 도구 결과 JSON 파싱
-import sys                                                  # 명령줄 인자, Python 경로, 종료 코드
-import time                                                 # 걸린 시간 측정
-from pathlib import Path                                    # 경로 처리
+import asyncio
+import json
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
 
-from mcp import Client                                      # MCP 클라이언트
-from mcp.client.stdio import StdioServerParameters          # stdio 서버 실행 설정
+from mcp import Client
+from mcp.client.stdio import StdioServerParameters
 
-HERE = Path(__file__).resolve().parent                      # 이 파일이 있는 디렉터리
-FULL = "--full" in sys.argv                                 # --full이면 top 테스트와 회귀도 확인
-fails = 0                                                   # 실패한 확인 수
-
-
-def check(name: str, cond: bool, detail: object = "") -> None:  # 확인 하나의 결과를 출력하는 함수
-    global fails                                            # 전역 실패 수를 바꿈
-    print(f"[{'OK ' if cond else 'BAD'}] {name}" + (f"  {detail}" if detail and not cond else ""))  # OK/BAD와 이름, 실패면 상세 내용도 출력
-    fails += 0 if cond else 1                               # 실패면 1 더함
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+FULL = "--full" in sys.argv
+fails = 0
 
 
-def data(res) -> object:                                    # 도구 결과에서 데이터를 꺼내는 함수
-    """structured content가 있으면 그것을, 없으면 text content를 JSON으로 파싱해 반환"""  # 함수 설명
-    if getattr(res, "structured_content", None) is not None:  # structured content가 있으면
-        sc = res.structured_content                         # 그것을 꺼냄
-        return sc.get("result", sc) if isinstance(sc, dict) and set(sc) == {"result"} else sc  # {"result": x} 꼴이면 x만, 아니면 그대로
-    txt = "".join(getattr(c, "text", "") for c in res.content)  # text content를 이어 붙임
-    try:                                                    # JSON 파싱 시도
-        return json.loads(txt)                              # 파싱 결과 반환
-    except ValueError:                                      # JSON이 아니면
-        return txt                                          # 문자열 그대로 반환
+def check(name: str, cond: bool, detail: object = "") -> None:
+    global fails
+    print(f"[{'OK ' if cond else 'BAD'}] {name}" + (f"  {str(detail)[:600]}" if detail and not cond else ""), flush=True)
+    fails += 0 if cond else 1
 
 
-async def main() -> int:                                    # 비동기 진입점
-    params = StdioServerParameters(command=sys.executable, args=[str(HERE / "server.py")])  # server.py를 지금 Python으로 실행하는 설정
-    async with Client(params, read_timeout_seconds=1800) as c:  # stdio로 서버에 접속 (응답 대기 최대 30분)
-        tools = {t.name for t in (await c.list_tools()).tools}  # 등록된 도구 이름 집합
-        want = {"list_testbenches", "lint", "run_test", "get_log_excerpt", "start_regression",  # 있어야 하는 도구
-                "regression_status", "coverage_report", "list_known_bugs"}  # (도구 목록 계속)
-        check("tools registered", want <= tools, sorted(tools))  # 모두 등록됐는지 확인
-
-        tbs = data(await c.call_tool("list_testbenches", {}))  # list_testbenches 호출
-        check("list_testbenches has top+skid", isinstance(tbs, dict) and {"top", "skid"} <= set(tbs), tbs)  # top과 skid가 있는지 확인
-
-        r = data(await c.call_tool("lint", {"tb": "skid"}))  # lint 호출 (skid)
-        check("lint skid ok", isinstance(r, dict) and r.get("ok") is True, r)  # 성공했는지 확인
-
-        r = data(await c.call_tool("run_test", {"tb": "skid", "test": "unit_smoke_test", "seed": "7"}))  # run_test 호출 (skid smoke, seed 7)
-        check("run_test skid smoke PASS", isinstance(r, dict) and r.get("verdict") == "PASS", r)  # PASS인지 확인
-
-        r = data(await c.call_tool("run_test", {"tb": "skid", "test": "unit_post_reset_test",  # run_test 호출 (BUG-001 재현 테스트)
-                                                "seed": "7", "rebuild": False}))  # seed 7, 다시 빌드하지 않음
-        check("run_test BUG-001 reproducer XFAIL", isinstance(r, dict) and r.get("verdict") == "XFAIL", r)  # XFAIL인지 확인
-
-        x = data(await c.call_tool("get_log_excerpt", {"tb": "skid", "test": "unit_post_reset_test",  # get_log_excerpt 호출
-                                                       "seed": "7", "max_lines": 20}))  # 같은 실행, 최대 20줄
-        check("get_log_excerpt shows scoreboard error",     # scoreboard 오류가 보이는지 확인
-              isinstance(x, dict) and "SB_" in x.get("excerpt", ""), x)  # (조건 계속)
-
-        bad = await c.call_tool("run_test", {"tb": "skid; del *", "test": "x"})  # 위험한 TB 이름으로 호출
-        check("rejects unknown tb", bool(getattr(bad, "is_error", False)), bad)  # 오류로 거부되는지 확인
-        bad = await c.call_tool("run_test", {"tb": "skid", "test": "unit_smoke_test",  # 위험한 plusarg로 호출
-                                             "plusargs": ["A=1 & calc"]})  # (인자 계속)
-        check("rejects unsafe plusarg", bool(getattr(bad, "is_error", False)), bad)  # 오류로 거부되는지 확인
-
-        bugs = data(await c.call_tool("list_known_bugs", {}))  # list_known_bugs 호출
-        check("list_known_bugs BUG-001/002", isinstance(bugs, dict) and {"BUG-001", "BUG-002"} <= set(bugs), bugs)  # BUG-001, BUG-002가 있는지 확인
-
-        cov = data(await c.call_tool("coverage_report", {"tb": "skid"}))  # coverage_report 호출 (skid)
-        check("coverage_report returns covergroups", isinstance(cov, dict) and len(cov.get("covergroups", {})) > 0, cov)  # covergroup 점수가 있는지 확인
-
-        if FULL:                                            # --full이면
-            r = data(await c.call_tool("run_test", {"tb": "top", "test": "dma_smoke_test", "seed": "3"}))  # run_test 호출 (top smoke)
-            check("run_test top smoke PASS", isinstance(r, dict) and r.get("verdict") == "PASS", r)  # PASS인지 확인
-            st = data(await c.call_tool("start_regression", {"suite": None, "tbs": ["skid"],  # start_regression 호출 (skid smoke)
-                                                             "tests": ["unit_smoke_test"], "seeds": 2}))  # seed 2개
-            rid = st["id"]                                  # 회귀 id
-            for _ in range(120):                            # 최대 120번 (10분)
-                s = data(await c.call_tool("regression_status", {"id": rid}))  # 상태 확인
-                if s.get("state") == "done":                # 끝났으면
-                    break                                   # 대기 종료
-                await asyncio.sleep(5)                      # 5초 대기
-            check("regression done, 2 runs, 0 fail", s.get("state") == "done" and s.get("runs") == 2  # 끝났고 2회 실행, 실패 0인지 확인
-                  and s.get("fail") == 0, s)                # (조건 계속)
-
-    print(f"\n{'ALL OK' if not fails else f'{fails} check(s) failed'}")  # 최종 결과 출력
-    return 1 if fails else 0                                # 실패가 있으면 1
+def data(res) -> object:
+    """structured content가 있으면 그것을, 없으면 text content를 JSON으로 파싱해 반환"""
+    if getattr(res, "structured_content", None) is not None:
+        sc = res.structured_content
+        return sc.get("result", sc) if isinstance(sc, dict) and set(sc) == {"result"} else sc
+    txt = "".join(getattr(c, "text", "") for c in res.content)
+    try:
+        return json.loads(txt)
+    except ValueError:
+        return txt
 
 
-if __name__ == "__main__":                                  # 스크립트로 실행될 때만
-    t0 = time.time()                                        # 시작 시각
-    rc = asyncio.run(main())                                # 비동기 main 실행
-    print(f"({time.time() - t0:.0f}s)")                     # 걸린 시간 출력
-    sys.exit(rc)                                            # 종료 코드
+def client() -> Client:
+    return Client(StdioServerParameters(command=sys.executable, args=[str(HERE / "server.py")]),
+                  read_timeout_seconds=3600)
+
+
+async def call(c: Client, tool: str, **args) -> object:
+    return data(await c.call_tool(tool, args))
+
+
+async def basic() -> None:
+    async with client() as c:
+        tools = {t.name for t in (await c.list_tools()).tools}
+        want = {"list_testbenches", "lint", "run_test", "get_log_excerpt", "trace_signals", "start_regression",
+                "regression_status", "cancel_job", "coverage_report", "check_inventory", "run_gate", "signoff",
+                "compare_regressions", "ledger_append", "ledger_read", "list_known_bugs"}
+        check("tools registered", want <= tools, sorted(want - tools))
+        tbs = await call(c, "list_testbenches")
+        check("list_testbenches has top+skid", isinstance(tbs, dict) and {"top", "skid"} <= set(tbs), tbs)
+        r = await call(c, "lint", tb="skid")
+        check("lint skid ok", isinstance(r, dict) and r.get("ok") is True, r)
+        r = await call(c, "run_test", tb="skid", test="unit_smoke_test", seed="7")
+        check("run_test skid smoke PASS (with provenance)", isinstance(r, dict) and r.get("verdict") == "PASS"
+              and bool((r.get("provenance") or {}).get("hw_hash")), r)
+        r = await call(c, "run_test", tb="skid", test="unit_post_reset_test", seed="7", rebuild=False)
+        check("run_test BUG-001 reproducer XFAIL", isinstance(r, dict) and r.get("verdict") == "XFAIL", r)
+        x = await call(c, "get_log_excerpt", tb="skid", test="unit_post_reset_test", seed="7", max_lines=20)
+        check("get_log_excerpt shows scoreboard error", isinstance(x, dict) and "SB_" in x.get("excerpt", ""), x)
+        for name, args in (("unknown tb", {"tool": "run_test", "tb": "skid; del *", "test": "x"}),
+                           ("unsafe plusarg", {"tool": "run_test", "tb": "skid", "test": "unit_smoke_test",
+                                               "plusargs": ["A=1 & calc"]}),
+                           ("foreign workspace", {"tool": "lint", "tb": "skid", "workspace": str(Path.home())}),
+                           ("bad HDL object", {"tool": "trace_signals", "tb": "skid", "objects": ["/a]; exec x"]})):
+            tool = args.pop("tool")
+            bad = await c.call_tool(tool, args)
+            check(f"rejects {name}", bool(getattr(bad, "is_error", False)), bad)
+        t = await call(c, "trace_signals", tb="skid", test="unit_post_reset_test", seed="1",
+                       objects=["/tb_skid/dut/*"], t_from_ns=100, t_to_ns=126,
+                       signals=["s_valid", "s_ready", "s_data", "m_valid", "m_data"])
+        txt = t.get("text", "") if isinstance(t, dict) else ""
+        check("trace_signals shows BUG-001 (s_valid=1 & s_ready=0 before 105ns, captured at 105ns)",
+              "s_ready=0" in txt.splitlines()[0] and "s_valid=1" in txt.splitlines()[0]
+              and any(l.strip().startswith("105.000ns") and "m_valid=1" in l for l in txt.splitlines()), t)
+        print("      " + txt.replace("\n", "\n      "))
+        bugs = await call(c, "list_known_bugs")
+        check("list_known_bugs: BUG-001/002 and hypotheses H1-H6",
+              isinstance(bugs, dict) and {"BUG-001", "BUG-002"} <= set(bugs.get("bugs", {}))
+              and len(bugs.get("hypotheses", {})) >= 6, bugs)
+        cov = await call(c, "coverage_report", tb="skid")
+        check("coverage_report returns covergroups and uncovered list",
+              isinstance(cov, dict) and cov.get("covergroups") and "uncovered_bins" in cov, cov)
+        inv = await call(c, "check_inventory")
+        check("check_inventory ok", isinstance(inv, dict) and inv.get("ok") is True, inv)
+        led = await call(c, "ledger_append", loop_id="selftest", kind="note", summary="selftest entry",
+                         data={"rerun": "python mcp/vivado_mcp/selftest.py"})
+        rd = await call(c, "ledger_read", loop_id="selftest", last=1)
+        check("ledger append/read round trip", isinstance(rd, dict) and rd.get("entries")
+              and rd["entries"][-1]["summary"] == "selftest entry", (led, rd))
+        if (ROOT / "out" / "regress" / "unit" / "summary.json").exists():
+            cmpr = await call(c, "compare_regressions", a="unit", b="unit")
+            check("compare_regressions(unit, unit) is same", isinstance(cmpr, dict) and cmpr.get("same") is True, cmpr)
+        g = await call(c, "run_gate", stage="static")
+        check("run_gate static PASS", isinstance(g, dict) and g.get("verdict") == "PASS", g)
+
+
+async def full() -> None:
+    async with client() as c:
+        r = await call(c, "run_test", tb="top", test="dma_smoke_test", seed="3")
+        check("run_test top smoke PASS", isinstance(r, dict) and r.get("verdict") == "PASS", r)
+        st = await call(c, "start_regression", suite=None, tbs=["skid"], tests=["unit_smoke_test"], seeds=2)
+        rid = st["id"]
+        for _ in range(240):                                # 회귀는 서버가 살아 있는 동안 돎 (server.py _spawn_detached 참고)
+            s = await call(c, "regression_status", id=rid)
+            if s.get("state") != "running":
+                break
+            await asyncio.sleep(5)
+        check("background regression done, 2 runs, 0 fail", s.get("state") == "done" and s.get("runs") == 2
+              and s.get("fail") == 0, s)
+    async with client() as c:                               # 새 서버 프로세스: 작업 상태가 파일에 남았는지
+        s = await call(c, "regression_status", id=rid)
+        check("regression status survives a server restart (read from out/mcp/jobs)",
+              s.get("state") == "done" and s.get("runs") == 2 and s.get("fail") == 0, s)
+        check("regression released the skid lock", not (ROOT / "out/mcp/locks/skid.lock").exists())
+        st = await call(c, "start_regression", suite=None, tbs=["skid"], seeds=20)
+        await asyncio.sleep(20)
+        cj = await call(c, "cancel_job", id=st["id"])
+        s = await call(c, "regression_status", id=st["id"])
+        check("cancel_job stops the regression and frees the lock",
+              cj.get("state") == "cancelled" and s.get("state") == "cancelled"
+              and not (ROOT / "out/mcp/locks/skid.lock").exists(), (cj, s))
+    with tempfile.TemporaryDirectory(prefix="mcp_wt_") as td:  # worktree 두 곳
+        wts = [Path(td) / "wtA", Path(td) / "wtB"]
+        for w in wts:
+            subprocess.run(["git", "worktree", "add", "--detach", "-q", str(w), "HEAD"], cwd=ROOT, check=True)
+        try:
+            async def lint_in(w: Path) -> tuple[float, object]:
+                async with client() as c:
+                    t0 = time.time()
+                    r = await call(c, "lint", tb="skid", workspace=str(w))
+                    return time.time() - t0, r
+            t0 = time.time()
+            res = await asyncio.gather(lint_in(wts[0]), lint_in(wts[1]), lint_in(wts[0]))  # 둘은 같은 worktree
+            wall = time.time() - t0
+            check("concurrent lint in two worktrees (+ same worktree twice) all ok",
+                  all(isinstance(r, dict) and r.get("ok") for _, r in res), res)
+            check("each worktree has its own build",
+                  all((w / "out/skid/build/build.json").exists() for w in wts)
+                  and not any((w / "out/mcp/locks/skid.lock").exists() for w in wts))
+            durs = sorted(d for d, _ in res)
+            print(f"      lint durations {[round(d) for d in durs]}s, wall {wall:.0f}s "
+                  f"(the two calls in the same worktree are serialized by the lock)")
+        finally:
+            for w in wts:
+                subprocess.run(["git", "worktree", "remove", "--force", str(w)], cwd=ROOT)
+
+
+async def main() -> int:
+    await basic()
+    if FULL:
+        await full()
+    print(f"\n{'ALL OK' if not fails else f'{fails} check(s) failed'}")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    t0 = time.time()
+    rc = asyncio.run(main())
+    print(f"({time.time() - t0:.0f}s)")
+    sys.exit(rc)
