@@ -645,6 +645,18 @@ covers = []
 status = "done"
 
 [[features]]
+id = "top.axil_timing"
+section = "top"
+title = "AXI-Lite master 타이밍이 달라도 예측이 맞음: 쓰기마다 AW/W 순서와 간격(같은 사이클, AW 먼저, W 먼저 1..3 에지), BREADY/RREADY 지연 0..4 에지 (`axil_cfg`)"
+tests_text = "dma_axil_timing_test (리셋 값 읽기, 작업 중 레지스터 쓰기와 다시 읽기, 랜덤 job polling/IRQ)"
+checks_text = "읽기값과 interrupt 핀 예측(REG_RESET, REG_BITBASH, REG_STATUS, IRQ, PRED_UNSUPPORTED), 작업 중 VALUE 변경 뒤 W 데이터와 메모리(SB_WDATA, SB_DATA), 완료(JOB_TIMEOUT), slave B/R VALID 유지(AXIL_SVA), 응답(AXIL_RESP), 노린 타이밍(W 먼저, AW 먼저, 늦은 BREADY, 늦은 RREADY, 작업 중 쓰기)에 갔는지(SCENARIO_MISS)"
+coverage_text = ""
+tests = ["top/dma_axil_timing_test"]
+checks = ["REG_RESET", "REG_BITBASH", "REG_STATUS", "IRQ", "PRED_UNSUPPORTED", "SB_WDATA", "SB_DATA", "JOB_TIMEOUT", "SVA:a_b_hold", "SVA:a_r_hold", "AXIL_SVA", "AXIL_RESP", "SCENARIO_MISS"]
+covers = []
+status = "done"
+
+[[features]]
 id = "top.ap_ctrl_hs"
 section = "top"
 title = "ap_ctrl_hs handshake SVA (bind, 모든 top 테스트)"

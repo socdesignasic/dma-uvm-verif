@@ -8,9 +8,9 @@ dma_ip(Zybo Z7-20)를 Vivado 2022.2 XSim 기반 UVM으로 검증했고, Jenkins 
 
 역할은 나눴습니다. 검증 방향, 범위, 판정 기준, 사양 해석과 사람 확인 지점(RTL 버그 등록, 검사 기준선 변경, 커밋)의 승인은 사람이 했습니다. 구현과 검토는 Claude Code 에이전트가 맡았고, 구현(`uvm-builder`)과 검토(`tb-reviewer`)를 서로 다른 에이전트로 나눴습니다. RTL은 외부 IP라서 읽기 전용이고, 에이전트는 고치지 않았습니다.
 
-- **검증:** TB 6종(unit 5 + top 1), 테스트 28종(TB별로 세면 52개). 전체 회귀(seed 5개) 260회에서 예상과 다른 실패 0건이고, 실패하는 것은 알려진 RTL 버그 재현 테스트(XFAIL 50회 = `known_fail` 10개 × seed 5)뿐입니다.
+- **검증:** TB 6종(unit 5 + top 1), 테스트 29종(TB별로 세면 53개). 전체 회귀(seed 5개) 260회(2026-11-21 `dma_axil_timing_test` 추가 전, 52개 기준)에서 예상과 다른 실패 0건이고, 실패하는 것은 알려진 RTL 버그 재현 테스트(XFAIL 50회 = `known_fail` 10개 × seed 5)뿐입니다.
 - **커버리지:** 6개 TB(adder, adder8, fifo, fifo_d4, skid, top) 모두 기능 커버리지 100%입니다.
-- **검증 계획:** 기능 44개를 `verif/plan.toml`에 두고, 가설 H1~H7을 directed test로 판정했습니다(모두 confirmed). 검사는 123개(ID 68종)이고 기준선과 비교합니다.
+- **검증 계획:** 기능 45개를 `verif/plan.toml`에 두고, 가설 H1~H7을 directed test로 판정했습니다(모두 confirmed). 검사는 125개(ID 68종)이고 기준선과 비교합니다.
 - **발견한 RTL 문제:** 버그 7건(BUG-001 won't fix, BUG-002~007 open)과 설계 노트 3건(NOTE-001~003)입니다.
 - **sign-off:** 기준 S1~S11을 `scripts/signoff.py`가 결과 파일로 판정합니다. main #34(full)는 nightly PASS입니다.
 - **CD와 보드:** 시스템 100MHz 타이밍을 통과했고(WNS +0.003ns, WHS +0.011ns), Zybo Z7-10 실보드에서 JTAG 시험 7/7, ARM C 프로그램 7/7이 PASS입니다.
@@ -104,7 +104,7 @@ job 실행은 virtual sequence(`dma_job_vseq`, `verif/top/seq/`)가 맡습니다
 
 | 구분 | 테스트 |
 | --- | --- |
-| top 기본 | `dma_reg_reset_test`, `dma_reg_bitbash_test`, `dma_smoke_test`, `dma_short_job_test`, `dma_rand_test`, `dma_4kb_cross_test`, `dma_backpressure_test`, `dma_irq_test`, `dma_size_edge_test`, `dma_long_job_test`, `dma_reset_test`, `dma_irq_ready_test`, `dma_busy_reg_write_test` |
+| top 기본 | `dma_reg_reset_test`, `dma_reg_bitbash_test`, `dma_smoke_test`, `dma_short_job_test`, `dma_rand_test`, `dma_4kb_cross_test`, `dma_backpressure_test`, `dma_irq_test`, `dma_size_edge_test`, `dma_long_job_test`, `dma_reset_test`, `dma_irq_ready_test`, `dma_busy_reg_write_test`, `dma_axil_timing_test`(AXI-Lite 타이밍 변화, 아래 한계 3) |
 | top 검사기 시험 | `dma_checker_test` |
 | top 가설, 버그 재현 (`known_fail`) | `dma_aw_backpressure_test`, `dma_aw_wait_after_job_test`, `dma_slow_b_test`, `dma_start_busy_test`, `dma_auto_restart_test`, `dma_reset_mid_job_test`, `dma_size_128mib_test` |
 | unit | `unit_smoke_test`, `unit_post_reset_test`(BUG-001 재현), `unit_single_beat_test`(skid만), `unit_rand_test`, `unit_backpressure_test`, `unit_sparse_input_test`, `unit_fixed_value_test` |
@@ -135,7 +135,7 @@ TB 목록의 원본은 `verif/sim_cfg.json`이고, 표는 `verif/README.md`에�
 
 기능 커버리지는 6개 TB 모두 100%입니다(top은 `cg_job`, `cg_burst`, unit은 `cg_beat`, `cg_cycle`). 이 100%는 bin 분포까지 본 값입니다. 11-14에 처음 본 100%는 XSim이 `$` 상한을 잘못 계산해 모든 job을 `huge` bin으로 세고 있었고, 고치자 실제는 97.6%였습니다. 그래서 점수만이 아니라 bin 분포도 의심합니다(S4, 이 확인은 아직 사람이 합니다). 그때 남은 구멍 2개(1 beat × interrupt, 512 beat × polling)는 `dma_size_edge_test`로 메웠습니다.
 
-검사기가 실제로 오류를 내는지는 `dma_checker_test`가 확인합니다. 결함을 하나씩 일부러 넣고, 예상한 검사 ID가 나오는지 봅니다. 검사 목록은 기준선(`verif/check_baseline.json`, 123개)과 `check_inventory.py --compare`로 비교합니다. 검사를 줄여서 통과시키는 것은 규칙으로 막고(CLAUDE.md 규칙 5), 줄면 `gate.py static`이 실패합니다.
+검사기가 실제로 오류를 내는지는 `dma_checker_test`가 확인합니다. 결함을 하나씩 일부러 넣고, 예상한 검사 ID가 나오는지 봅니다. 검사 목록은 기준선(`verif/check_baseline.json`, 125개)과 `check_inventory.py --compare`로 비교합니다. 검사를 줄여서 통과시키는 것은 규칙으로 막고(CLAUDE.md 규칙 5), 줄면 `gate.py static`이 실패합니다.
 
 ## 가설 판정
 
@@ -355,6 +355,35 @@ RTL 담당자의 결정이 가장 급합니다. 나머지는 운영과 검증 �
 - [ ] `gh` 재로그인으로 토큰이 바뀌면 `github` MCP 재등록 (`mcp/README.md`)
 
 검증 범위 밖으로 둔 것은 전송 크기 0 또는 8의 배수가 아닌 경우(SW 사양상 금지)와 dst > src 겹침입니다(`verif/plan.toml`에 "사양 밖"으로 적음).
+
+### TB의 알려진 한계 (2026-11-21 리뷰)
+
+재설계 뒤 리뷰에서 아래 네 가지를 지적받았고, 코드로 확인했습니다. 다음 TB 단계의 범위입니다.
+
+1. **커버리지 모델이 얇습니다.** top은 coverpoint 9개와 cross 3개(`cg_job`, `cg_burst`)뿐이고,
+   `verif/plan.toml`의 top 기능 32개 중 22개(레지스터 reset/bit-bash, backpressure, start_busy, auto_restart,
+   ap_ctrl_hs, 테스트 중간 리셋 등)는 커버포인트를 가리키지 않습니다. 이 기능들은 directed test와 `SCENARIO_MISS`
+   검사로만 "도달했다"를 확인합니다. 코드 커버리지는 `sim.py run --cov` 옵션만 있고 CI와 sign-off에는 없습니다.
+   - 다음 단계: 리셋·IRQ 조합·backpressure·제어 이벤트를 monitor/predictor에서 샘플링하는 covergroup, nightly에
+     코드 커버리지 보고서, sign-off 기준은 목표값을 정한 뒤 추가.
+2. **top TB에 `randomize()`와 `constraint`가 없습니다.** 자극의 랜덤 값은 모두 테스트 스레드의 `$urandom`입니다.
+   seed 재현성을 지키려고 구조를 맞춘 곳이 있습니다. 예를 들어 리셋으로 중단된 job을 별도 port 대신 같은 job
+   핸들을 다시 보내 scoreboard에 알립니다(`SB_DUP_JOB` 규칙).
+   - 다음 단계: job을 rand 클래스와 constraint로 만들고 객체마다 `srandom`을 명시, 중단 알림은 별도 port로.
+     모든 seed의 값이 바뀌므로 전체 회귀와 sign-off를 다시 받습니다.
+3. **AXI-Lite 자극과 m00 응답이 단순합니다.** 리뷰 시점에는 드라이버가 AW와 W를 항상 같은 사이클에 내고
+   BREADY/RREADY를 바로 줬습니다. 이 타이밍 부분은 같은 날 고쳤습니다: `axil_cfg`(AW/W 어긋남 최대 d, B/R ready
+   지연 최대 d, 기본 0이면 이전과 같은 사이클 동작)와 새 테스트 `dma_axil_timing_test`(W 먼저, AW 먼저, 늦은
+   BREADY, 늦은 RREADY에 실제로 도달했는지 `SCENARIO_MISS`로 확인). seed 3개에서 predictor 불일치 0이고 predictor는
+   고칠 것이 없었습니다. 이 DUT는 AW를 받은 뒤에만 WREADY를 올리므로(`control_s_axi.v:151`) W handshake가 AW보다
+   먼저 오는 경우는 시험할 수 없고, 노브를 켠 채 테스트 중간 리셋은 지원하지 않습니다(`RESET_CFG`). 남은 것은 부분 WSTRB, 맵 밖 주소, 같은 에지의 읽기·쓰기는 predictor가 `PRED_UNSUPPORTED`로 막아 검증하지
+   않았고, AXI4 slave는 BRESP/RRESP를 항상 OKAY로 줍니다(SLVERR/DECERR 없음).
+   - 다음 단계: predictor의 부분 쓰기·맵 밖 주소·동시 접근 모델링,
+     slave 오류 응답 주입(RTL은 BRESP/RRESP를 쓰지 않으므로 동작을 판정해 노트로 남길 가능성이 큼).
+4. **predictor의 제어 레지스터 부분은 RTL 식을 옮겨 적은 모델입니다**(`dma_predictor.svh` 머리 주석). RTL이 바뀌는
+   회귀는 잡지만, RTL이 처음부터 사양과 다르면 TB도 똑같이 틀립니다. 사양(HLS ap_ctrl_hs 관례)에서 따로 만든 start
+   모델만 BUG-005를 잡은 것이 그 증거입니다.
+   - 다음 단계: AP_CTRL·ISR·interrupt를 사양에서 다시 모델링. 어긋나는 곳은 가설로 세워 판정합니다.
 
 ## 부록: 재현 명령과 커밋 이력
 

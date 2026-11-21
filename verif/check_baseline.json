@@ -1,7 +1,7 @@
 {
-  "updated": "2026-11-21 15:40:46",
-  "reason": "TB 2단계: ap_ctrl_hs SVA 7개 + APCTRL_SVA, SCENARIO_MISS, RESET_BUSY/RESET_CFG/NO_VIF, SB_DUP_JOB 등 새 검사 보호. 억제 구문 증가 없음. 사용자 승인 2026-11-21",
-  "commit": "20593be9c3782addc6f5b41e427157b023d152b1",
+  "updated": "2026-11-21 22:57:11",
+  "reason": "AXI-Lite 타이밍 변화: dma_axil_timing_test 도달 확인 SCENARIO_MISS +1, dma_reset_vseq RESET_CFG(노브 켠 채 중간 리셋 금지) +1. 사용자 승인 2026-11-21",
+  "commit": "e63fc1a4d0a8c6de69627a615b397ce422dfd7c4",
   "checks": {
     "$error": 1,
     "$fatal": 1,
@@ -29,7 +29,7 @@
     "REG_RESET": 1,
     "REG_STATUS": 1,
     "RESET_BUSY": 2,
-    "RESET_CFG": 1,
+    "RESET_CFG": 2,
     "SB_AR_LIST": 1,
     "SB_AW_LIST": 1,
     "SB_BEATS": 1,
@@ -47,7 +47,7 @@
     "SB_UNFINISHED": 1,
     "SB_WDATA": 1,
     "SB_WSTRB": 1,
-    "SCENARIO_MISS": 33,
+    "SCENARIO_MISS": 34,
     "SELFTEST_MISS": 1,
     "SVA:a_ap_done_pulse": 1,
     "SVA:a_ap_idle_excl": 1,
@@ -151,7 +151,7 @@
     "NO_VIF": [
       "verif/top/env/dma_vsqr.svh:27",
       "verif/vip/axi4_slave/axi4_slave_agent.svh:22",
-      "verif/vip/axil/axil_agent.svh:18",
+      "verif/vip/axil/axil_agent.svh:20",
       "verif/vip/stream/stream_agent.svh:21"
     ],
     "PRED_UNSUPPORTED": [
@@ -170,11 +170,12 @@
       "verif/top/model/dma_predictor.svh:385"
     ],
     "RESET_BUSY": [
-      "verif/top/seq/dma_reset_vseq.svh:45",
-      "verif/top/seq/dma_reset_vseq.svh:56"
+      "verif/top/seq/dma_reset_vseq.svh:50",
+      "verif/top/seq/dma_reset_vseq.svh:61"
     ],
     "RESET_CFG": [
-      "verif/top/seq/dma_reset_vseq.svh:32"
+      "verif/top/seq/dma_reset_vseq.svh:34",
+      "verif/top/seq/dma_reset_vseq.svh:36"
     ],
     "SB_AR_LIST": [
       "verif/top/scoreboard/dma_scoreboard.svh:161"
@@ -239,6 +240,7 @@
       "verif/top/test/dma_aw_wait_after_job_test.svh:56",
       "verif/top/test/dma_aw_wait_after_job_test.svh:65",
       "verif/top/test/dma_aw_wait_after_job_test.svh:66",
+      "verif/top/test/dma_axil_timing_test.svh:153",
       "verif/top/test/dma_busy_reg_write_test.svh:181",
       "verif/top/test/dma_busy_reg_write_test.svh:228",
       "verif/top/test/dma_busy_reg_write_test.svh:255",
@@ -339,5 +341,5 @@
       "verif/top/test/dma_error_catcher.svh"
     ]
   },
-  "files": 98
+  "files": 100
 }

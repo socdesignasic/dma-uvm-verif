@@ -3,8 +3,10 @@
 //   1. axil_sqr를 lock: 다른 sequence가 새 AXI-Lite 접근을 시작하지 못하게 함
 //   2. lock은 driver가 이미 받은 item을 기다려 주지 않음 (UVM은 앞에 대기 요청이 없으면 바로 lock을 줌).
 //      그래서 master 쪽 신호(AWVALID, WVALID, ARVALID, BREADY, RREADY)가 IDLE_EDGES 에지 연속 모두 0이 될 때까지 기다림
-//      = 진행 중이던 접근이 B/R까지 끝남 (axil_driver는 접근하는 동안 이 중 하나를 항상 1로 둠. 2 에지면 막 받은 item의
-//      첫 구동이 다음 에지 +skew에 나타나는 경우도 잡음). max_wait 에지 안에 안 끝나면 RESET_BUSY
+//      = 진행 중이던 접근이 B/R까지 끝남 (axil_driver는 접근하는 동안 이 중 하나를 항상 1로 둠 - 타이밍 노브(axil_cfg)가
+//      0일 때만. 2 에지면 막 받은 item의 첫 구동이 다음 에지 +skew에 나타나는 경우도 잡음). max_wait 에지 안에 안 끝나면 RESET_BUSY
+//      노브가 0이 아니면 AW/W 간격이나 READY 지연 동안 위 신호가 모두 0인 에지가 생기고, READY 지연 중에 리셋하면
+//      driver가 오지 않는 B/R을 계속 기다리므로 시작하지 않음 -> RESET_CFG
 //   3. rst_vif.pulse(n_cycles)와 나란히, DUT가 rst_n=0을 보는 에지(거는 에지 E 다음 E+1부터 해제 에지까지 n_cycles개)마다
 //      AXI-Lite VALID(AWVALID, WVALID, ARVALID)를 검사해 1이면 RESET_BUSY. 특히 E+1은 DUT areset이 아직 0이라
 //      접근을 받을 수 있는 에지. lock 밖에서 버스를 구동하거나 driver가 item 없이 VALID를 올리면 여기서 잡힘
@@ -30,6 +32,9 @@ class dma_reset_vseq extends uvm_sequence #(uvm_sequence_item);  // virtual sequ
     virtual dma_reset_if r = p_sequencer.rst_vif;   // 리셋 interface
     int unsigned         idle, waited;              // 연속 빈 에지 수, 기다린 에지 수
     if (n_cycles < 2) `uvm_fatal("RESET_CFG", $sformatf("n_cycles=%0d: must be at least 2 (the TB sees n-1 reset edges)", n_cycles))  // 0/1이면 TB가 리셋을 못 봄
+    if (p_sequencer.cfg.ctl_cfg.max_aw_w_skew != 0 || p_sequencer.cfg.ctl_cfg.max_ready_delay != 0)  // AXI-Lite 타이밍 노브를 켰으면 (위 2의 전제가 깨짐)
+      `uvm_fatal("RESET_CFG", $sformatf("mid-test reset needs AXI-Lite timing knobs at 0 (%s): with AW/W skew or READY delay an access can be in progress with AWVALID/WVALID/ARVALID/BREADY/RREADY all low",  // 중단
+                                        p_sequencer.cfg.ctl_cfg.convert2string()))  // 노브 값
 
     // 1. 새 접근 막기
     lock(p_sequencer.axil_sqr);                     // 다른 sequence의 AXI-Lite item을 막음

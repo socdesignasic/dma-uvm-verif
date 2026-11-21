@@ -153,7 +153,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
   <h1>AXI DMA IP UVM 검증 환경과<br>AI Agent 기반 검증 자동화</h1>
   <p class="lead">AXI4-Lite 레지스터, AXI4 read/write DMA, AXI-Stream 연산기로 이루어진 DMA IP를 Vivado XSim에서 UVM으로 검증했습니다. top 테스트벤치는 RAL 레지스터 모델, RTL을 매 클럭 따라가는 predictor, 모니터 기반 scoreboard로 구성하고, 결함을 일부러 넣어 검사가 실제로 잡는지 확인합니다. 반복 작업은 LLM Agent가 MCP로 시뮬레이터를 다루도록 자동화하고 판단과 승인은 사람이 맡았으며, 모든 push는 Jenkins 회귀와 sign-off 기준 11개로 확인합니다. 이 과정에서 RTL 기능 버그 7건과 설계 노트 3건을 찾아 재현 테스트와 함께 등록했고(RTL은 고치지 않음), Zynq 보드의 실제 DDR에서 1MB 전송까지 JTAG 시험과 ARM bare-metal C 프로그램 양쪽으로 동작을 확인했습니다.</p>
   <div class="stats" role="list">
-    <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top, 테스트 28종)</span></div>
+    <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top, 테스트 29종)</span></div>
     <div class="stat bug" role="listitem"><span class="v">7 + 3</span><span class="k">RTL 버그 + 설계 노트</span></div>
     <div class="stat" role="listitem"><span class="v">123</span><span class="k">검사 (uvm_error·SVA)를 기준선으로 관리</span></div>
     <div class="stat" role="listitem"><span class="v">260</span><span class="k">full 회귀 실행, fail 0 (xfail 50은 등록된 버그 재현)</span></div>
@@ -228,11 +228,11 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       </ul>
     </div>
     <div class="panel">
-      <h3>Top 테스트 21종</h3>
+      <h3>Top 테스트 22종</h3>
       <ul class="clean" style="margin-top:10px">
         <li>기본: <code>smoke</code>, <code>short_job</code>, <code>long_job</code>, <code>rand</code>, <code>size_edge</code>, <code>4kb_cross</code></li>
         <li>지연: <code>backpressure</code>, <code>aw_backpressure</code>, <code>aw_wait_after_job</code>, <code>slow_b</code></li>
-        <li>레지스터와 인터럽트: <code>reg_reset</code>, <code>reg_bitbash</code>, <code>irq</code>, <code>irq_ready</code>, <code>busy_reg_write</code></li>
+        <li>레지스터와 인터럽트: <code>reg_reset</code>, <code>reg_bitbash</code>, <code>irq</code>, <code>irq_ready</code>, <code>busy_reg_write</code>, <code>axil_timing</code></li>
         <li>제어와 리셋: <code>start_busy</code>, <code>auto_restart</code>, <code>reset</code>, <code>reset_mid_job</code>, <code>size_128mib</code></li>
         <li>검사기 자체 시험: <code>checker</code></li>
       </ul>
@@ -247,6 +247,16 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <li><b>checker self-test</b>: 결함 5종을 일부러 넣어, 잡아야 하는 검사가 실제로 오류를 내는지 확인. 결함을 넣지 않으면 이 테스트가 FAIL하는 것(음성 대조)도 확인</li>
       <li><b>SVA</b>: AXI·valid/ready 규칙은 인터페이스에, ap_ctrl_hs handshake 규칙 7개는 <code>bind</code>로 붙여(RTL 수정 없음) 모든 top 테스트에서 검사</li>
       <li><b>테스트 중간 리셋</b>: 진행 중인 레지스터 접근이 끝난 뒤 리셋을 걸고, predictor·scoreboard·slave 모델이 리셋을 따라감</li>
+    </ul>
+  </div>
+  <div class="panel">
+    <h3>알려진 한계와 다음 단계 (2026-11-21 리뷰)</h3>
+    <p class="note" style="margin-top:6px">재설계 뒤 리뷰에서 지적받아 코드로 확인한 네 가지입니다. 다음 TB 단계의 범위입니다.</p>
+    <ul class="clean" style="margin-top:10px">
+      <li><b>커버리지 모델이 얇음</b>: top은 coverpoint 9개와 cross 3개뿐이고, 검증 계획의 top 기능 32개 중 22개(레지스터 reset/bit-bash, backpressure, start_busy, auto_restart, 테스트 중간 리셋 등)는 커버포인트 없이 directed test와 <code>SCENARIO_MISS</code> 검사로만 도달을 확인합니다. 코드 커버리지는 실행 옵션만 있고 CI와 sign-off에는 없습니다. 다음 단계: 리셋·IRQ 조합·backpressure·제어 이벤트를 monitor/predictor에서 샘플링하는 covergroup, nightly에 코드 커버리지 보고서</li>
+      <li><b>top TB에 <code>randomize()</code>와 <code>constraint</code>가 없음</b>: 자극의 랜덤 값은 모두 테스트 스레드의 <code>$urandom</code>입니다. seed 재현성을 지키려고 구조를 맞춘 곳이 있습니다(리셋으로 중단된 job을 별도 port 대신 같은 job 핸들을 다시 보내 scoreboard에 알림). 다음 단계: job을 rand 클래스와 constraint로 만들고 객체마다 <code>srandom</code>을 명시, 중단 알림은 별도 port로. 모든 seed의 값이 바뀌므로 전체 회귀와 sign-off를 다시 받습니다</li>
+      <li><b>AXI-Lite 자극과 AXI4 slave 응답이 단순함</b>: 리뷰 시점에는 드라이버가 AW와 W를 항상 같은 사이클에 내고 BREADY/RREADY를 바로 줬습니다. 이 타이밍 부분은 같은 날 고쳤습니다. <code>axil_cfg</code>(AW/W 어긋남, B/R ready 지연, 기본 0이면 이전과 같은 동작)와 <code>dma_axil_timing_test</code>(W 먼저, AW 먼저, 늦은 BREADY, 늦은 RREADY에 실제로 도달했는지 <code>SCENARIO_MISS</code>로 확인)를 더했고, seed 3개에서 predictor 불일치 0이었습니다(predictor는 고칠 것 없음). 이 DUT는 AW를 받은 뒤에만 WREADY를 올리므로 W handshake가 AW보다 먼저 오는 경우는 시험할 수 없고, 노브를 켠 채 테스트 중간 리셋은 지원하지 않습니다. 남은 것: 부분 WSTRB, 맵 밖 주소, 같은 에지의 읽기·쓰기 모델링, slave 오류 응답(SLVERR/DECERR) 주입</li>
+      <li><b>predictor의 제어 레지스터 부분은 RTL 식을 옮겨 적은 모델</b>: RTL이 바뀌는 회귀는 잡지만, RTL이 처음부터 사양과 다르면 TB도 똑같이 틀립니다. 사양(HLS ap_ctrl_hs 관례)에서 따로 만든 start 모델만 BUG-005를 잡은 것이 그 증거입니다. 다음 단계: AP_CTRL·ISR·interrupt를 사양에서 다시 모델링하고, 어긋나는 곳은 가설로 세워 판정</li>
     </ul>
   </div>
 </section>

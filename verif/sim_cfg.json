@@ -163,6 +163,7 @@
         "dma_checker_test",
         "dma_reset_test",
         "dma_irq_ready_test",
+        "dma_axil_timing_test",
         "dma_busy_reg_write_test",
         "dma_start_busy_test",
         "dma_auto_restart_test",

@@ -39,9 +39,9 @@ CI(Jenkins)도 같은 스크립트를 실행합니다. `ci/README.md`를 참고�
 | `skid` | skid_buffer 64비트 | 7 | 1 |
 | `adder` | axis_adder 64비트, 32비트 lane 2개 (모듈 기본값) + beat마다 ctrl_constant | 6 | - |
 | `adder8` | axis_adder 64비트, 8비트 lane 8개 (dma_ip_top과 같음) | 6 | - |
-| `top` | dma_ip_top: AXI-Lite master + AXI4 slave 메모리, RDMA->adder(8비트 lane)->WDMA | 21 | 7 |
+| `top` | dma_ip_top: AXI-Lite master + AXI4 slave 메모리, RDMA->adder(8비트 lane)->WDMA | 22 | 7 |
 
-테스트 28종, TB별로 세면 52개입니다. CI와 `regress.py`는 이 표의 테스트만 돌립니다.
+테스트 29종, TB별로 세면 53개입니다. CI와 `regress.py`는 이 표의 테스트만 돌립니다.
 <!-- /gen:tbs -->
 
 `known_fail`은 테스트를 추적 중인 RTL 버그(`verif/BUGS.md`)에 연결합니다. 결과는 XFAIL로 보고되고,

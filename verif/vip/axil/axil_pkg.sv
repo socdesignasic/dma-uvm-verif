@@ -9,6 +9,7 @@ package axil_pkg;                                   // 패키지 시작
 
   typedef virtual axil_if axil_vif;                 // virtual interface 타입 별칭
 
+  `include "axil_cfg.svh"                            // driver 타이밍 노브
   `include "axil_item.svh"                           // 트랜잭션 item
   `include "axil_sequencer.svh"                      // sequencer
   `include "axil_driver.svh"                         // driver

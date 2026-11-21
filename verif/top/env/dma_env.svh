@@ -29,6 +29,7 @@ class dma_env extends uvm_env;                      // UVM env 상속
     if (!uvm_config_db#(dma_env_cfg)::get(this, "", "cfg", cfg))  // config_db에서 env 설정 가져오기
       cfg = dma_env_cfg::type_id::create("cfg");    // 없으면 기본 설정 생성
     uvm_config_db#(axi4_slave_cfg)::set(this, "mem_agt", "cfg", cfg.slv_cfg);  // 메모리 agent에 slave 설정 전달
+    uvm_config_db#(axil_cfg)::set(this, "axil_agt", "cfg", cfg.ctl_cfg);  // AXI-Lite agent에 타이밍 노브 전달
     axil_agt = axil_agent::type_id::create("axil_agt", this);  // AXI4-Lite agent 생성
     mem_agt  = axi4_slave_agent::type_id::create("mem_agt", this);  // 메모리 slave agent 생성
     regmodel = dma_reg_block::type_id::create("regmodel");  // RAL 모델 생성

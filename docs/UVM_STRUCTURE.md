@@ -26,7 +26,7 @@ verif/
 │  │    stream_rand_seq.svh
 │  ├─ axil/                   AXI4-Lite 마스터 (top TB, DUT 제어 레지스터)
 │  │    axil_if.sv  axil_pkg.sv
-│  │    axil_item.svh  axil_sequencer.svh  axil_driver.svh  axil_monitor.svh  axil_agent.svh
+│  │    axil_cfg.svh  axil_item.svh  axil_sequencer.svh  axil_driver.svh  axil_monitor.svh  axil_agent.svh
 │  │    axil_reg_adapter.svh    ← uvm_reg <-> axil_item
 │  │    axil_reg_base_seq.svh   ← write_reg / read_reg
 │  └─ axi4_slave/             AXI4 슬레이브 + 메모리 모델 (top TB, DUT m00)
@@ -88,12 +88,13 @@ unit: stream_pkg → unit_env_pkg → unit_test_pkg → tb_fifo / tb_skid / tb_a
 
 | 파일 | 역할 |
 |---|---|
+| `axil_cfg.svh` | driver 타이밍 노브 `max_aw_w_skew`(쓰기마다 AW/W 순서: 같은 사이클 / AW 먼저 / W 먼저, 간격 1..max 에지), `max_ready_delay`(B/R 응답마다 0..max 에지, VALID를 본 뒤 READY를 올림). 기본 0이면 driver는 `$urandom`을 부르지 않고 사이클 동작은 노브를 넣기 전과 같음 (단 같은 seed의 기존 테스트 자극은 XSim에서 바뀔 수 있음). driver는 skew를 쓰기 시작 때, READY 지연을 B/R 대기 시작 때 읽음. **노브를 켠 채 테스트 중간 리셋은 지원하지 않음** (`dma_reset_vseq`가 `RESET_CFG`로 멈춤). agent가 config_db `cfg`로 받고 없으면 기본값 |
 | `axil_item.svh` | 읽기 또는 쓰기 한 건 (`write`, `addr`, `data`, `resp`) |
 | `axil_sequencer.svh` | `axil_item` sequencer |
-| `axil_driver.svh` | 쓰기: AW와 W를 동시에 내고 각각 handshake 후 B를 받음. 읽기: AR 후 R을 받아 item에 `data`/`resp`를 채움 |
+| `axil_driver.svh` | 쓰기: AW와 W를 (기본) 같은 사이클에 내고 각각 handshake 후 B를 받음. 읽기: AR 후 R을 받아 item에 `data`/`resp`를 채움. `axil_cfg` 노브를 켜면 AW/W 순서와 간격, BREADY/RREADY 지연을 접근마다 고르고, 실제로 늦춘 수를 `AXIL_TIMING` 줄에 남김 |
 | `axil_monitor.svh` | 버스를 driver와 따로 관찰해 접근마다 `axil_item`을 `ap`로 보냄. 쓰기는 AW와 W가 모두 끝난 에지, 읽기는 R 에지(`addr`는 짝이 되는 AR 주소). B/R 응답이 OKAY가 아니면 `AXIL_RESP` 에러. 리셋 에지의 handshake는 보지 않고, 짝이 안 맞은 대기 큐(AW, W, B, R)를 비움. 결함 주입 노브 `inj_rd_*`(기본 꺼짐, checker self-test용) |
 | `axil_reg_adapter.svh` | `uvm_reg` 접근과 `axil_item`을 서로 바꿈. RAL frontdoor와 `uvm_reg_predictor`가 씀 (strobe는 항상 4바이트 전부) |
-| `axil_agent.svh` | sequencer + driver + monitor. monitor가 본 접근을 `ap`로 내보냄 |
+| `axil_agent.svh` | sequencer + driver + monitor. monitor가 본 접근을 `ap`로 내보냄. `cfg`(`axil_cfg`)를 driver에 넘김 |
 | `axil_reg_base_seq.svh` | 레지스터 시퀀스의 기본 클래스. `write_reg(addr, data)`, `read_reg(addr, data)`. 응답이 OKAY가 아니면 `UVM_ERROR` |
 
 ### `axi4_slave_agent`: 반응형 AXI4 슬레이브 + 메모리 모델 (top TB, DDR 대신)
@@ -159,7 +160,7 @@ unit: stream_pkg → unit_env_pkg → unit_test_pkg → tb_fifo / tb_skid / tb_a
 | `dma_job.svh` | DMA 실행 한 번: `src`, `dst`, `bytes`, `value`, `mode`(polling 또는 IRQ)과 기대값 `exp` |
 | `dma_ref_model.svh` | job 하나의 기대 동작: 기대 AR/AW 목록, 기대 W 데이터, start 시점 src와 dst(앞뒤 guard 포함) 스냅샷. 1MiB를 넘는 job은 목록 대신 `n_bursts`/`burst_at` 계산식. VALUE 변경 목록(beat별 값) |
 | `dma_predictor.svh` | 위 설명. 오류 ID는 아래 |
-| `dma_env_cfg.svh` | 슬레이브 cfg, 클럭 주기(시간 예산 계산용) |
+| `dma_env_cfg.svh` | 슬레이브 cfg(`slv_cfg`), AXI-Lite master 타이밍 노브(`ctl_cfg`, env가 config_db로 `axil_agt`에 넘김), 클럭 주기(시간 예산 계산용) |
 | `dma_scoreboard.svh` | job 단위 검사 (아래) |
 | `dma_coverage.svh` | `cg_job`, `cg_burst` |
 | `dma_vsqr.svh` | job virtual sequencer. `dma_job_vseq`가 쓰는 핸들: AXI-Lite sequencer(`axil_sqr`), `regmodel`, 메모리 모델(`mem`), `mem_drv`(JOB_TIMEOUT 메시지의 진행 상황, R handshake 수 `n_rd_beats`), `ctl_vif`, `rst_vif`(리셋 interface), `cfg`. `rst_vif`는 tb_dma가 config_db로 넣고 없으면 `NO_VIF` fatal |
@@ -293,6 +294,7 @@ unit: stream_pkg → unit_env_pkg → unit_test_pkg → tb_fifo / tb_skid / tb_a
 | `dma_long_job_test.svh` | 8192 beat(64KB) job 1개 |
 | `dma_reset_test.svh` | 테스트 중간 리셋 3경우 (PASS). (1) idle에서 리셋 뒤 레지스터 10개를 리셋 값과 비교하고 job 실행 (2) 마지막 W 뒤 마지막 B 전에 리셋하고 버스가 조용한지 관찰 (3) ISR이 set되고 interrupt가 1인 채 리셋 |
 | `dma_irq_ready_test.svh` | IER가 ready 또는 ready+done, GIE 0/1 조합 (PASS) |
+| `dma_axil_timing_test.svh` | AXI-Lite master 타이밍 노브(`ctl_cfg`: AW/W 간격 최대 3, READY 지연 최대 4)를 켜고 리셋 값 읽기, 작업 중 레지스터 쓰기와 다시 읽기(`dma_busy_reg_vseq`, VALUE 하위 8비트 변경), 랜덤 job 8개(polling/IRQ). W 먼저, AW 먼저, 늦은 BREADY, 늦은 RREADY, 작업 중 쓰기를 버스로 확인하고 못 가면 `SCENARIO_MISS` (PASS) |
 | `dma_busy_reg_write_test.svh` | 작업 중 레지스터 쓰기, 작업 중 VALUE_TO_ADD 변경(NOTE-002), idle 확인 없는 연속 job, in-place job (PASS) |
 
 가설 테스트: 사양대로 기대를 검사하고 가설이 맞으면 FAIL합니다. 모두 `known_fail`로 등록돼 XFAIL로 보고됩니다. 가설 판정과 버그 설명은 [BUGS.md](../verif/BUGS.md), 가설 목록은 `verif/plan.toml`에 있고, 여기에는 테스트의 자극만 적습니다. 노린 상태에 실제로 갔는지는 버스 관찰로 확인하고, 못 갔으면 `SCENARIO_MISS` 에러입니다.
@@ -365,7 +367,7 @@ unit: stream_pkg → unit_env_pkg → unit_test_pkg → tb_fifo / tb_skid / tb_a
            └─ dma_scoreboard      : 중단된 job은 정보(SB_JOB ABORTED). 리셋 뒤 job 없는 활동은 SB_NO_JOB_BUS
 ```
 
-- **`dma_reset_vseq`:** `axil_sqr`를 lock하고, master 쪽 VALID/READY가 연속으로 비는 것을 본 뒤 리셋을 겁니다. 그래도 끝나지 않으면 `RESET_BUSY`입니다. 리셋 중에 AXI-Lite VALID가 1이 되면 `RESET_BUSY`입니다.
+- **`dma_reset_vseq`:** `axil_sqr`를 lock하고, master 쪽 VALID/READY가 연속으로 비는 것을 본 뒤 리셋을 겁니다. 그래도 끝나지 않으면 `RESET_BUSY`입니다. 리셋 중에 AXI-Lite VALID가 1이 되면 `RESET_BUSY`입니다. "접근 중에는 master 쪽 신호 하나가 늘 1"이라는 전제는 AXI-Lite 타이밍 노브(`ctl_cfg`, `axil_cfg`)가 0일 때만 맞으므로, 노브가 0이 아니면 시작하지 않고 `RESET_CFG` fatal입니다.
 - **`n_cycles` 최소 2:** TB 쪽은 해제 에지를 이미 리셋 밖으로 읽어(전원 리셋 때와 같음) n-1 에지만 리셋으로 봅니다. 2 미만이면 `RESET_CFG` fatal입니다. 자세한 이유는 `dma_reset_if.sv` 머리 주석에 있습니다.
 - **같은 job handle 재전송:** scoreboard가 `t_abort`가 있는 handle은 중단으로, 없는 handle이 다시 오면 `SB_DUP_JOB`으로 구분합니다.
 

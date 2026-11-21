@@ -51,6 +51,7 @@ env: AXI4-Lite master (`axil_agent` + `axil_monitor`) → DUT → AXI4 slave age
 | done 직후 idle 확인 없이 다음 start (다음 작업 레지스터는 작업 중에 씀) | dma_busy_reg_write_test (dma_pipeline_vseq) | 다음 작업 결과(SB_DATA), 완료(JOB_TIMEOUT), AP_CTRL 예측(REG_STATUS) | | ✅ |
 | 제자리 복사(dst=src)와 dst<src 겹침 (dst>src 겹침은 사양 밖) | dma_busy_reg_write_test | 결과 메모리(SB_DATA), W 데이터(SB_WDATA), 앞뒤 guard(SB_OVERRUN) | | ✅ |
 | IER=ready만 / 둘 다, GIE 0/1: ISR[1], AP_CTRL.ready(COR), interrupt 핀 | dma_irq_ready_test | ISR과 interrupt 핀 예측(IRQ), AP_CTRL.ready(REG_STATUS) | | ✅ |
+| AXI-Lite master 타이밍이 달라도 예측이 맞음: 쓰기마다 AW/W 순서와 간격(같은 사이클, AW 먼저, W 먼저 1..3 에지), BREADY/RREADY 지연 0..4 에지 (`axil_cfg`) | dma_axil_timing_test (리셋 값 읽기, 작업 중 레지스터 쓰기와 다시 읽기, 랜덤 job polling/IRQ) | 읽기값과 interrupt 핀 예측(REG_RESET, REG_BITBASH, REG_STATUS, IRQ, PRED_UNSUPPORTED), 작업 중 VALUE 변경 뒤 W 데이터와 메모리(SB_WDATA, SB_DATA), 완료(JOB_TIMEOUT), slave B/R VALID 유지(AXIL_SVA), 응답(AXIL_RESP), 노린 타이밍(W 먼저, AW 먼저, 늦은 BREADY, 늦은 RREADY, 작업 중 쓰기)에 갔는지(SCENARIO_MISS) | | ✅ |
 | ap_ctrl_hs handshake SVA (bind, 모든 top 테스트) | top의 PASS 테스트 전부 (bind라 모든 테스트에 붙음) | start는 ready까지 유지, ready/done 1사이클, idle 배타, idle에서 start를 받으면 나감, start 없이 시작 안 함 | | ✅ |
 | 테스트 중간 리셋: 리셋 뒤 버스 조용, 레지스터 리셋 값, interrupt 0, 다음 작업 정상 | dma_reset_test | 리셋 뒤 버스 활동(SB_NO_JOB_BUS), 리셋 값(REG_RESET), interrupt(IRQ), 리셋 중 AXI-Lite VALID(RESET_BUSY), 리셋 설정(RESET_CFG, NO_VIF), 중단 job 처리(SB_DUP_JOB) | | ✅ |
 | 데이터 경로에 beat가 남은 채 리셋 | dma_reset_mid_job_test | 리셋 뒤 start 전 버스 활동(SB_NO_JOB_BUS), 다음 작업 데이터(SB_DATA), WLAST(AXI_WLAST) | | ❌ BUG-006 |

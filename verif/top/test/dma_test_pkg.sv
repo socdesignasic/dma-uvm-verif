@@ -24,6 +24,7 @@ package dma_test_pkg;                               // 패키지 시작
   `include "dma_size_edge_test.svh"                  // 경계 크기 테스트
   `include "dma_long_job_test.svh"                      // 큰 작업 테스트
   `include "dma_irq_ready_test.svh"                  // IER = ready만 / 둘 다 x GIE 0/1 (ISR[1], AP_CTRL.ready)
+  `include "dma_axil_timing_test.svh"                // AXI-Lite AW/W 순서, BREADY/RREADY 지연 (axil_cfg 노브)
   // 테스트 중간 리셋
   `include "dma_reset_test.svh"                      // idle 리셋, 마지막 B 전 리셋, interrupt 대기 중 리셋
   // 가설 확인 (directed)
