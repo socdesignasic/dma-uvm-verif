@@ -400,7 +400,8 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <ul class="clean" style="margin-top:12px">
       <li><b>waiver = known_fail 승인</b>: RTL 버그로 확정 → BUGS.md 기록 → RTL 담당자가 상태 결정(open / won't fix) → 재현 테스트를 <code>known_fail</code>로 등록. RTL이 고쳐지면 XPASS가 되어 빌드가 실패하므로, 수정이 조용히 지나가지 않습니다.</li>
       <li><b>만들자마자 찾은 것</b>: 판정을 처음 돌리자 S9가 <code>dma_smoke_test</code>와 <code>dma_small_test</code>(지금 이름은 <code>dma_short_job_test</code>)가 vplan에 빠져 있는 것을 잡았습니다. 앞의 것은 unit 표의 같은 단어("smoke")에 가려져 있었습니다.</li>
-      <li><b>release 판정 (2026-11-18, 재설계 전): PASS, 조건부 출시</b>: full 빌드 #28(205회 fail 0, 6개 TB 커버리지 100, 시스템 WNS +0.003ns, 비트스트림)과 보드 시험 2종을 함께 판정해 당시 기준이 모두 PASS였습니다. BUG-002가 open이라 조건부 판정이었습니다. 그 뒤 재설계에서 버그 5건이 더 나왔으므로 이 판정은 그 시점의 것입니다. 재설계 뒤 nightly 수준은 다시 PASS했고, 새 버그의 waiver 승인과 보드 시험을 포함한 release 재판정은 남아 있습니다.</li>
+      <li><b>release 판정 (2026-11-18, 재설계 전): PASS, 조건부 출시</b>: full 빌드 #28(205회 fail 0, 6개 TB 커버리지 100, 시스템 WNS +0.003ns, 비트스트림)과 보드 시험 2종을 함께 판정해 당시 기준이 모두 PASS였습니다. BUG-002가 open이라 조건부 판정이었습니다. 그 뒤 재설계에서 버그 5건이 더 나왔으므로 이 판정은 그 시점의 것입니다.</li>
+      <li><b>release 판정 (2026-11-21, 재설계 뒤): PASS, 조건부 출시</b>: 수정 없는 checkout에서 full 회귀 260회 fail 0(xfail 50), 6개 TB 커버리지 100, OOC WNS +0.014ns, Z7-10 시스템 빌드 WNS +0.005ns와 비트스트림, 다시 한 보드 시험 2종(JTAG 7/7, ARM C 7/7)을 함께 판정해 S1~S4, S6~S11이 모두 PASS였습니다(S5는 smoke 전용). BUG-002~007이 open이고 waiver는 RTL 담당자 결정 대기라 조건부 출시입니다. 출시 노트 조건: AWREADY나 B 응답을 늦추는 interconnect에서 사용 금지, start는 idle 확인 뒤 한 번만 쓰고 auto_restart는 쓰지 않음, 작업 도중 리셋한 뒤의 결과는 신뢰하지 않음, 전송 크기는 128MiB 미만.</li>
     </ul>
   </div>
 </section>
@@ -518,7 +519,7 @@ python scripts/regress.py --plan out/ml/plan.json</pre>
       </table>
     </div>
     <pre class="cmd" style="margin-top:12px">python scripts/board.py --xsa out/fpga/system_xc7z010/design_1_wrapper.xsa</pre>
-    <p class="note" style="margin-top:10px">시뮬레이션에서 찾은 버그 7건은 보드 시험 7개에서 드러나지 않았습니다. 모두 이 보드 구성(HP0 직결, 제공 SW의 사용 순서)에서는 생기지 않는 조건(AWREADY나 B 응답 지연, 작업 중 start나 리셋, 128MiB 이상 전송)에서만 나타납니다. 보드 시험 통과가 버그 없음을 뜻하지 않는다는 점, 시뮬레이션에서 지연과 리셋을 일부러 넣는 시나리오의 가치를 보여 줍니다. RTL은 보드 시험 뒤로 바뀌지 않았습니다.</p>
+    <p class="note" style="margin-top:10px">시뮬레이션에서 찾은 버그 7건은 보드 시험 7개에서 드러나지 않았습니다. 모두 이 보드 구성(HP0 직결, 제공 SW의 사용 순서)에서는 생기지 않는 조건(AWREADY나 B 응답 지연, 작업 중 start나 리셋, 128MiB 이상 전송)에서만 나타납니다. 보드 시험 통과가 버그 없음을 뜻하지 않는다는 점, 시뮬레이션에서 지연과 리셋을 일부러 넣는 시나리오의 가치를 보여 줍니다. 보드 시험은 2026-11-16~17에 처음 했고, 재설계 뒤 release 판정을 위해 2026-11-21에 다시 해서 JTAG와 C 프로그램 모두 7/7 PASS였습니다. RTL은 그동안 바뀌지 않았습니다.</p>
   </div>
 </section>
 
@@ -562,13 +563,13 @@ python scripts/regress.py --plan out/ml/plan.json</pre>
       </table>
     </div>
     <pre class="cmd" style="margin-top:12px">python scripts/board_c.py          # 빌드 + 실행 + 판정 (UART: COM 포트)</pre>
-    <p class="note" style="margin-top:10px">1MB 전송에서 DMA는 787 MB/s로, 64비트 × 100MHz 이론값(800 MB/s)의 98%이고 CPU memcpy보다 2.2배 빠릅니다. 작은 크기에서 CPU가 빨라 보이는 것은 원본이 아직 cache에 남아 있기 때문이라, 공정한 비교는 L2(512KB)보다 큰 1MB뿐입니다. DMA 시간에는 DONE 폴링 지연이 포함됩니다.</p>
+    <p class="note" style="margin-top:10px">1MB 전송에서 DMA는 787 MB/s로, 64비트 × 100MHz 이론값(800 MB/s)의 98%이고 CPU memcpy보다 2.2배 빠릅니다. 작은 크기에서 CPU가 빨라 보이는 것은 원본이 아직 cache에 남아 있기 때문이라, 공정한 비교는 L2(512KB)보다 큰 1MB뿐입니다. DMA 시간에는 DONE 폴링 지연이 포함됩니다. 표는 2026-11-17 측정이고, 2026-11-21 재시험에서도 7/7 PASS에 1MB DMA 787 MB/s, memcpy 364 MB/s로 거의 같았습니다.</p>
   </div>
 </section>
 
 <footer>
   <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
-  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#28과 재설계 브랜치 빌드 #11·#12, 2026-11-21, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#28과 재설계 브랜치 빌드 #11·#12, 2026-11-21, 재설계 뒤 release 판정 2026-11-21, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, 두 보드 시험 재실행 2026-11-21, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
 </footer>
 </div>
 

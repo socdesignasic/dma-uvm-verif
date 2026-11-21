@@ -121,3 +121,18 @@ python scripts/signoff.py --level release    # 출시 판정 (보드 시험 결�
   - BUG-002 (open): AWREADY를 늦추는 interconnect나 slave에 연결하면 hang 위험이 있습니다. 현재 확인된 구성은 Zynq HP0 직결뿐입니다.
   - BUG-001 (won't fix): 리셋 해제 직후 같은 사이클에 입력을 넣지 않습니다.
   - NOTE-001: 타이밍 여유가 +0.003ns이므로, RTL이나 구현 설정을 바꾸면 S6·S7을 다시 확인합니다.
+
+### release 판정 (2026-11-21, 재설계 뒤)
+- **근거:** 커밋 `94accfa`, 수정 없는 checkout에서 `python scripts/signoff.py --level release` → **PASS**
+  (S1~S4, S6~S11 PASS, S5 N/A). 판정 결과 원본: `out/loop/release/signoff_release_94accfa.md`(로컬).
+  - 전체 회귀 seed 5: 260회 fail 0, XFAIL 50(known_fail 10개 × seed 5), 커버리지 6개 TB 100%
+  - OOC(xc7z020) WNS +0.014ns / WHS +0.125ns, 시스템 빌드(xc7z010) WNS +0.005ns / WHS +0.008ns, 비트스트림·XSA
+  - Zybo Z7-10 보드: JTAG `board.py` 7/7 PASS, ARM C `board_c.py` 7/7 PASS(1MB 787 MB/s, mailbox와 UART 판정 일치)
+  - HW 해시 `9fdca2f0cc594a65` (승인값과 같음, checkout과 모든 근거)
+- **판정:** 조건부 출시. BUG-002~007이 open이고 waiver는 RTL 담당자 결정 대기입니다.
+- **출시 노트에 적을 조건:**
+  - AWREADY나 B 응답을 늦추는 interconnect에서 사용 금지 (BUG-002, BUG-003, BUG-004)
+  - start는 idle 확인 뒤 한 번만 쓰고, auto_restart는 쓰지 않음 (BUG-005)
+  - 작업 도중 PL 리셋을 했다면 그 뒤 작업 결과를 신뢰하지 말 것 (BUG-006)
+  - transfer_byte는 128MiB 미만 (BUG-007)
+  - BUG-001(won't fix), NOTE-001(타이밍 여유) 조건은 2026-11-18 판정과 같음
