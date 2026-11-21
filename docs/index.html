@@ -336,15 +336,15 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 
 <section aria-labelledby="s-ci">
   <div class="sec-head"><span class="eyebrow">04 · CI/CD</span><h2 id="s-ci">Jenkins 회귀 파이프라인과 Sign-off</h2></div>
-  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다. smoke는 ML 회귀 계획(06 참고)에 계획 밖의 새 테스트를 더해 돌리고, 목표 bin 183개를 모두 채웠는지 확인합니다. 아래 단계별 시간은 재설계 전 빌드 #25(47회)의 것이고, 재설계 뒤 브랜치 빌드는 58회, 13.6분입니다.</p>
-  <div class="pipe" aria-label="빌드 #25 단계">
+  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다. smoke는 ML 회귀 계획(06 참고)에 계획 밖의 새 테스트를 더해 돌리고, 목표 bin 183개를 모두 채웠는지 확인합니다. 아래는 main 병합 뒤 빌드의 단계입니다. 회귀 수와 시간은 smoke #35(58회, 13.8분) / full #34(260회, 41.6분)이고, Plan coverage는 smoke에서만, 비트스트림은 full에서만 돕니다.</p>
+  <div class="pipe" aria-label="main 빌드 #35(smoke)와 #34(full) 단계">
     <div class="stage"><span class="s">Plan · Lint</span><span class="t">정적 gate + 컴파일</span></div>
-    <div class="stage"><span class="s">Unit regression</span><span class="t">30 runs · 266s</span></div>
-    <div class="stage"><span class="s">Top regression</span><span class="t">17 runs · 71s</span></div>
-    <div class="stage"><span class="s">Plan coverage</span><span class="t">183/183 bin · 13s</span></div>
-    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014 · 185s</span></div>
+    <div class="stage"><span class="s">Unit regression</span><span class="t">smoke 31 · 308s<br>full 155 · 576s</span></div>
+    <div class="stage"><span class="s">Top regression</span><span class="t">smoke 27 · 162s<br>full 105 · 346s</span></div>
+    <div class="stage"><span class="s">Plan coverage</span><span class="t">183/183 bin<br>smoke만</span></div>
+    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014<br>176~187s</span></div>
     <div class="stage"><span class="s">Coverage HTML</span><span class="t">6 TB · 100%</span></div>
-    <div class="stage skip"><span class="s">Bitstream</span><span class="t">nightly full only</span></div>
+    <div class="stage"><span class="s">Bitstream · XSA</span><span class="t">full만 · WNS +0.003<br>1247s</span></div>
   </div>
   <div class="two">
     <div class="panel scroll">
