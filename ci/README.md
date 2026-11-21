@@ -27,7 +27,7 @@ git에도 들어가지 않습니다.
 ## 파이프라인 (`Jenkinsfile`)
 | 계기 | 모드 | 실행 내용 |
 |---|---|---|
-| `main`에 push (SCM poll, 5분마다) | smoke | lint, ML 회귀 계획(`verif/regress_plan.json`, 47회)대로 unit + top, 계획 목표 bin 확인 |
+| `main`에 push (SCM poll, 5분마다) | smoke | lint, ML 회귀 계획(`verif/regress_plan.json`, 47회)대로 unit + top, 계획에 없는 테스트는 seed 1개씩 추가, 계획 목표 bin 확인 |
 | 매일 02:00 무렵 | full | 모든 TB의 모든 테스트 × seed 5개 + 기능 커버리지 HTML |
 | "Build with Parameters" | 둘 중 선택 | `MODE`, `SEEDS` 직접 지정 (smoke에서 `SEEDS`를 주면 계획 대신 예전 방식: unit 전부 + top smoke 묶음) |
 

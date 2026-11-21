@@ -93,9 +93,13 @@ python scripts/signoff.py --level release    # 출시 판정 (보드 시험 결�
 
 | 빌드 | 결과 | 회귀 (runs / fail / xfail) | 테스트 (pass / skip / fail) | 커버리지 | OOC WNS | 시스템 WNS / WHS | 비트스트림 | Sign-off | 시간 |
 |---|---|---|---|---|---|---|---|---|---|
+| #34 | SUCCESS | 260 / 0 / 50 | 210 / 50 / 0 | adder=100 adder8=100 fifo=100 fifo_d4=100 skid=100 top=100 | +0.014ns | +0.003ns / +0.011ns | `.bit` 4,045,676B, `.xsa` 679,401B | **nightly PASS** | 41.6분 |
 | tb-redesign #12 | SUCCESS | 260 / 0 / 50 | 210 / 50 / 0 | adder=100 adder8=100 fifo=100 fifo_d4=100 skid=100 top=100 | +0.014ns | +0.003ns / +0.011ns | `.bit` 4,045,676B, `.xsa` 679,418B | **nightly PASS** | 36분 |
 | #28 | SUCCESS | 205 / 0 / 20 | 185 / 20 / 0 | 6개 TB 100 | +0.014ns | +0.003ns / +0.011ns | `.bit` 4,045,676B, `.xsa` 679,404B | **nightly PASS** | 33.4분 |
 
+- #34는 tb-redesign을 main에 병합한 뒤 2026-11-21에 수동으로 앞당겨 돌린 full 빌드입니다 (`MODE=full`, 커밋
+  `5b53124`, 결과는 tb-redesign #12와 같음). 같은 커밋의 smoke 빌드 #32도 SUCCESS, smoke sign-off PASS였습니다
+  (58회 fail 0, 빌드 로그 기준. 작업 폴더가 #34로 덮여 표에는 넣지 않음).
 - #28은 2026-11-18에 수동으로 앞당겨 돌린 full 빌드입니다 (`MODE=full`, 타이머 nightly와 같은 단계).
 - xfail 20 = known_fail 4개 × seed 5개. 모두 BUG-001, BUG-002 재현입니다.
 

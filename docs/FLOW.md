@@ -38,8 +38,8 @@
 |---|---|---|---|
 | 1 | Plan | 모드(smoke 또는 full)와 seed 수를 정합니다. smoke는 ML 회귀 계획(`verif/regress_plan.json`)을 씁니다 | – |
 | 2 | Lint | `gate.py static`(hook 테스트, 스크립트 테스트, 검사 목록 기준선, 검증 계획, 문서)을 돌리고, DUT와 top TB를 컴파일·elaborate합니다(`sim.py lint`) | 정적 검사 실패, 컴파일 에러 |
-| 3 | Unit regression | 블록 단위 TB 5종을 병렬로 돌립니다 (smoke 30회) | FAIL 또는 XPASS |
-| 4 | Top regression | DMA 전체 TB를 돌립니다 (smoke 17회, 계획대로) | FAIL 또는 XPASS |
+| 3 | Unit regression | 블록 단위 TB 5종을 병렬로 돌립니다 (smoke 계획 30회 + 계획에 없는 테스트 1개, 31회) | FAIL 또는 XPASS |
+| 4 | Top regression | DMA 전체 TB를 돌립니다 (smoke 계획 17회 + 계획에 없는 테스트 10개, 27회) | FAIL 또는 XPASS |
 | 4a | Plan coverage | smoke가 계획의 목표 bin(183개)을 모두 채웠는지 확인합니다 (`ml_regress.py check`) | 못 채우면 UNSTABLE |
 | 5 | FPGA timing (OOC) | `fpga.py ooc`로 DMA만 따로 배치·배선해 100MHz 타이밍을 봅니다 | WNS < 0 |
 | 6 | FPGA bitstream | `fpga.py system`으로 PS7과 BD를 넣어 .bit과 .xsa를 만듭니다 | 타이밍 위반이나 빌드 에러 |
@@ -112,7 +112,7 @@ unit 테스트는 더 단순합니다. `stream_agent`가 입력 스트림을 넣
       └─ RTL 버그 → HW/는 고치지 않습니다 (hook이 막습니다)
                    → BUGS.md에 증상, 원인, 재현 명령, 수정 제안을 적습니다
                    → sim_cfg.json에 known_fail로 등록합니다 (XFAIL)
-                   → 사람에게 보고하고 결정을 기다립니다 (BUG-001: won't fix, BUG-002: 결정 대기)
+                   → 사람에게 보고하고 결정을 기다립니다 (BUG-001: won't fix, BUG-002~007: 결정 대기)
 ```
 
 검사를 느슨하게 만들어서 통과시키는 것은 금지입니다. 실패는 TB를 고치거나 버그로 등록하는 두 가지 중 하나로만

@@ -1,6 +1,6 @@
 ---
 name: file-rtl-bug
-description: 시뮬레이션이 드러낸 RTL 버그 하나를 BUGS.md, plan.toml, sim_cfg.json known_fail, SIGNOFF.md waiver 표에 한 번에 등록하고, plan_check와 재현 실행으로 확인한 뒤 멈춰서 사용자에게 보고합니다. sim-triage가 실패를 RTL 버그로 분류했거나 가설(H1~H6)이 확인됐을 때 사용합니다. RTL은 고치지 않습니다.
+description: 시뮬레이션이 드러낸 RTL 버그 하나를 BUGS.md, plan.toml, sim_cfg.json known_fail, SIGNOFF.md waiver 표에 한 번에 등록하고, plan_check와 재현 실행으로 확인한 뒤 멈춰서 사용자에게 보고합니다. sim-triage가 실패를 RTL 버그로 분류했거나 가설(H1~H7)이 확인됐을 때 사용합니다. RTL은 고치지 않습니다.
 ---
 # file-rtl-bug: RTL 버그 등록 절차
 

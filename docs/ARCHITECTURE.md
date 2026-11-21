@@ -23,7 +23,7 @@ CI/CD, 에이전트 자동화가 차례로 올라갑니다. 위층은 모두 아
 | `dma_ip/dma_ip_control_s_axi.v` | AXI-Lite 레지스터 (ap_start/done, 주소, 길이, 더할 값, 인터럽트) |
 | `dma_ip/RDMA/rdma.v` | AXI4로 메모리를 읽어 스트림으로 내보냄 |
 | `dma_ip/axis_adder.v` | 스트림 데이터마다 값을 더함 (top에서는 8비트) |
-| `dma_ip/WDMA/wdma.v` | 스트림을 AXI4로 메모리에 씀 (BUG-002가 여기 있음) |
+| `dma_ip/WDMA/wdma.v` | 스트림을 AXI4로 메모리에 씀 (BUG-002~004가 여기 있음. 버그별 위치는 [BUGS.md](../verif/BUGS.md)) |
 | `peri_ip/sync_fifo.v`, `skid_buffer.v` | FIFO와 skid buffer (BUG-001이 여기 있음) |
 
 데이터는 메모리에서 RDMA, FIFO, adder, FIFO, WDMA를 거쳐 다시 메모리로 갑니다. 전송 동작은 레지스터로
