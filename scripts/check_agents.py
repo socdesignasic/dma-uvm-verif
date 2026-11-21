@@ -10,7 +10,7 @@ check_agents.py - 서브에이전트(.claude/agents/*.md)와 스킬(.claude/skil
   AGENT_WRITE    검토하는 쪽 에이전트(파일을 고치지 않는 역할)에 Edit/Write 도구가 있음
   AGENT_PATH     프롬프트에 폴더 이동(TB 0-1단계)으로 바뀔 verif/ 아래 경로를 박아 둠 (문서를 읽게 할 것)
   SKILL_META     SKILL.md frontmatter에 name/description이 없거나, name이 폴더 이름과 다름
-  STALE_REF      에이전트, 스킬, 문서가 없는 에이전트나 스킬을 가리킴 (docs/REPORT.md는 고정 기록이라 제외)
+  STALE_REF      에이전트, 스킬, 문서가 없는 에이전트나 스킬을 가리킴
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ WRITERS = {"verif-planner", "uvm-builder", "doc-sync"}      # 파일을 고쳐�
 ROLE = re.compile(r"(?<![A-Za-z0-9_-])[a-z]+-(?:planner|builder|reviewer|triage|watcher|closer|sync)"
                   r"(?![A-Za-z0-9_-])")                     # 에이전트 이름처럼 보이는 말 (한국어 조사가 바로 붙어도 잡음)
 MOVING = re.compile(r"verif/(?:agents|env|sequences|tests|tb|filelist)/")  # 0-1단계에서 옮겨질 경로
-DOC_EXCLUDE = ("uvm_reference/", "SW/", "out/", "docs/REPORT.md")
+DOC_EXCLUDE = ("uvm_reference/", "SW/", "out/")
 
 
 def frontmatter(text: str) -> dict[str, str]:

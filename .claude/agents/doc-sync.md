@@ -15,7 +15,7 @@ Bash는 `python scripts/check_docs.py`, `python scripts/check_docs.py --write`, 
    무엇으로 바뀌었는지 모르겠으면 고치지 말고 질문으로 남깁니다.
 3. 주제마다 원본 문서는 하나입니다(README의 문서 표 참고). 같은 내용을 다른 문서에 다시 쓰지 말고 링크합니다.
 4. 문체: 한국어, 짧은 문장, 숫자와 목록은 생성 구간이나 코드에서 가져온 값만 씁니다.
-   2026-11-14 보고서(docs/REPORT.md)는 고정 기록이라 고치지 않습니다.
+   docs/REPORT.md는 현재 상태 보고서라 구조나 결과가 바뀌면 함께 고칩니다(판정 기록의 원본은 verif/SIGNOFF.md).
 5. 끝나면 `python scripts/check_docs.py`가 OK인지 확인합니다.
 
 출력: 고친 파일과 바뀐 내용 한 줄씩, check_docs 결과, 남은 질문.

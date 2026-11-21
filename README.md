@@ -57,7 +57,7 @@ BUG-001(won't fix)과 NOTE-001(타이밍 여유)의 조건은 `verif/SIGNOFF.md`
 | `Jenkinsfile`, `ci/` | 로컬 Jenkins (Configuration as Code), Vivado 블록 디자인과 IP 패키징, xsdb 보드 시험(`ci/vivado/board_*.tcl`), Vitis 빌드(`ci/vitis/`) 스크립트 |
 | `mcp/` | 시뮬레이션 흐름을 에이전트에 제공하는 MCP 서버 |
 | `.claude/`, `CLAUDE.md` | 에이전트 규칙, 서브에이전트 7개, 스킬 7개, `HW/`를 읽기 전용으로 지키는 hook |
-| `docs/` | 저장소 구성, 흐름, UVM 코드 구조, 2026-11-14 결과 보고서 (고정) |
+| `docs/` | 저장소 구성, 흐름, UVM 코드 구조, 검증·CI/CD 결과 보고서 |
 
 ## 빠른 시작 (`HW/`에 RTL을 넣은 뒤)
 
@@ -180,6 +180,6 @@ C 프로그램(`fw/dma_board_test/dma_board_test.c`)이 하는 일:
 | Jenkins 설치와 운영, FPGA, 보드 시험 | [ci/README.md](ci/README.md) |
 | MCP 서버 | [mcp/README.md](mcp/README.md) |
 | 에이전트 작업 규칙 | [CLAUDE.md](CLAUDE.md) |
-| 2026-11-14 결과 보고서 (고정) | [docs/REPORT.md](docs/REPORT.md) |
+| 검증·CI/CD 결과 보고서 (2026-11-21 기준) | [docs/REPORT.md](docs/REPORT.md) |
 
 문서의 경로, 클래스 이름, 표는 `python scripts/check_docs.py`가 코드와 비교합니다.

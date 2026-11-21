@@ -31,7 +31,7 @@ from common import ROOT, setup_utf8                       # 공통 모듈
 
 setup_utf8()                                                # UTF-8 출력
 
-EXCLUDE = ("uvm_reference/", "SW/", "out/", "mem_copy", "docs/REPORT.md")  # REPORT.md는 2026-11-14 고정 기록  # 검사하지 않는 곳 (외부 참고 자료, 결과물)
+EXCLUDE = ("uvm_reference/", "SW/", "out/", "mem_copy")  # 검사하지 않는 곳 (외부 참고 자료, 결과물)
 RE_PATH = re.compile(r"`((?:\.claude|\.githooks|ci|docs|scripts|verif|mcp|HW|fw)/[^`\s*<>{}|]+)`")  # `경로`
 RE_CLASS = re.compile(r"`([a-z][a-z0-9_]*_(?:seq|test|env|agent|scoreboard|coverage|monitor|driver|pkg|cfg|if|"
                       r"model|item|predictor|sequencer|vseq|vsqr|map|base_test))`")  # `클래스 이름`
