@@ -8,7 +8,7 @@ dma_ip(Zybo Z7-20)를 Vivado 2022.2 XSim 기반 UVM으로 검증했고, Jenkins 
 
 역할은 나눴습니다. 검증 방향, 범위, 판정 기준, 사양 해석과 사람 확인 지점(RTL 버그 등록, 검사 기준선 변경, 커밋)의 승인은 사람이 했습니다. 구현과 검토는 Claude Code 에이전트가 맡았고, 구현(`uvm-builder`)과 검토(`tb-reviewer`)를 서로 다른 에이전트로 나눴습니다. RTL은 외부 IP라서 읽기 전용이고, 에이전트는 고치지 않았습니다.
 
-- **검증:** TB 6종(unit 5 + top 1), 테스트 29종(TB별로 세면 53개). 전체 회귀(seed 5개) 260회(2026-11-21 `dma_axil_timing_test` 추가 전, 52개 기준)에서 예상과 다른 실패 0건이고, 실패하는 것은 알려진 RTL 버그 재현 테스트(XFAIL 50회 = `known_fail` 10개 × seed 5)뿐입니다.
+- **검증:** TB 6종(unit 5 + top 1), 테스트 29종(TB별로 세면 53개). 전체 회귀(seed 5개, main #40) 265회에서 예상과 다른 실패 0건이고, 실패하는 것은 알려진 RTL 버그 재현 테스트(XFAIL 50회 = `known_fail` 10개 × seed 5)뿐입니다.
 - **커버리지:** 6개 TB(adder, adder8, fifo, fifo_d4, skid, top) 모두 기능 커버리지 100%입니다.
 - **검증 계획:** 기능 45개를 `verif/plan.toml`에 두고, 가설 H1~H7을 directed test로 판정했습니다(모두 confirmed). 검사는 125개(ID 68종)이고 기준선과 비교합니다.
 - **발견한 RTL 문제:** 버그 7건(BUG-001 won't fix, BUG-002~007 open)과 설계 노트 3건(NOTE-001~003)입니다.
@@ -121,8 +121,9 @@ top의 adder는 `C_ADDER_BIT_WIDTH = 8`로 8bit 레인이고, 그 설정을 그�
 | 브랜치 `tb-redesign` #12 (full) | 모든 테스트 × seed 5 | 260 | 0 | 50 | 36분 |
 | main #32 (smoke, `5b53124`) | 위와 같음 | 58 | 0 | 10 | 약 31분 |
 | main #34 (full, `5b53124`) | 모든 테스트 × seed 5 | 260 | 0 | 50 | 41.6분 |
+| main #40 (full, `2e8c451`) | 모든 테스트 × seed 5 (`dma_axil_timing_test` 포함) | 265 | 0 | 50 | 36.4분 |
 
-main #32는 smoke sign-off PASS였고, #34는 nightly sign-off PASS였습니다. 재설계 전 마지막 full은 #28(205회, fail 0, XFAIL 20, 33.4분)입니다. 같은 seed 5개 기준으로 테스트가 41개에서 52개로, `known_fail`이 4개에서 10개로 늘었습니다.
+main #32는 smoke sign-off PASS였고, #34와 #40(새 테스트 추가 뒤)은 nightly sign-off PASS였습니다. 재설계 전 마지막 full은 #28(205회, fail 0, XFAIL 20, 33.4분)입니다. 같은 seed 5개 기준으로 테스트가 41개에서 53개로(#40 기준), `known_fail`이 4개에서 10개로 늘었습니다.
 
 | TB | 대상 | 테스트 | known_fail |
 | --- | --- | --- | --- |
@@ -201,7 +202,7 @@ waiver는 `known_fail` 등록입니다. 재현 테스트를 등록하려면 BUGS
 | --- | --- | --- |
 | release 2026-11-18 (재설계 전) | full #28(205회 fail 0, 시스템 WNS +0.003ns)과 보드 시험 2종 | PASS, 조건부 출시 (BUG-002 waiver). S1~S4, S6~S9 PASS |
 | smoke #27 | ML 계획 47회 (Sign-off 단계 첫 실행) | smoke PASS |
-| nightly `tb-redesign` #12, main #34 | full 260회 fail 0, xfail 50, 커버리지 6개 TB 100 | nightly PASS |
+| nightly `tb-redesign` #12, main #34, #40 | full 260회(#12, #34), 265회(#40, 새 테스트 포함) fail 0, xfail 50, 커버리지 6개 TB 100 | nightly PASS |
 | release 2026-11-21 (재설계 뒤) | 커밋 `94accfa`, 수정 없는 checkout. full 260회, OOC, Z7-10 시스템 빌드, 보드 시험 2종 | PASS, 조건부 출시. S1~S4, S6~S11 PASS, S5는 smoke 전용이라 N/A |
 
 2026-11-21 release 판정의 근거는 아래와 같습니다.
@@ -224,7 +225,7 @@ waiver는 `known_fail` 등록입니다. 재현 테스트를 등록하려면 BUGS
 | 트리거 | 실행 내용 |
 | --- | --- |
 | `main` push (5분 polling), smoke | `gate.py static`과 lint, ML 회귀 계획(47회)대로 unit과 top, 계획에 없는 테스트는 seed 1개씩 추가(합쳐서 58회), 계획 목표 bin 확인, DMA 단독 OOC 타이밍, smoke sign-off |
-| nightly 02:00, full | 모든 TB의 모든 테스트 × seed 5(260회), 기능 커버리지 HTML, 비트스트림 + XSA, nightly sign-off |
+| nightly 02:00, full | 모든 TB의 모든 테스트 × seed 5(53개 × 5 = 265회), 기능 커버리지 HTML, 비트스트림 + XSA, nightly sign-off |
 | 수동 | `MODE`, `SEEDS`, `BITSTREAM` 지정 |
 
 smoke 빌드는 8.8~13.6분, full 빌드는 33.4~41.6분 걸렸습니다(SIGNOFF.md 판정 기록).

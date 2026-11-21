@@ -33,7 +33,7 @@ TB를 재설계(2026-11-19~21)한 뒤의 상태입니다. 상세는 [verif/SIGNO
 - 검사(uvm_error, SVA) 125개를 기준선(`verif/check_baseline.json`)으로 관리합니다. 줄거나 억제가 늘면 실패합니다.
 - RTL 버그 7건: BUG-001 won't fix, BUG-002~007 open. 설계 노트 3건 (NOTE-001~003). RTL은 고치지 않았습니다.
 - 가설 7개(H1~H7)를 모두 시뮬레이션으로 판정했습니다. 6개는 BUG-003~007로, 1개는 NOTE-002로 정리했습니다.
-- full 회귀(seed 5): 260회, fail 0, XFAIL 50 (known_fail 10개 × seed 5). 6개 TB 기능 커버리지 모두 100%.
+- full 회귀(seed 5, main #40): 265회, fail 0, XFAIL 50 (known_fail 10개 × seed 5). 6개 TB 기능 커버리지 모두 100%.
 - release 판정 (2026-11-21): **PASS, 조건부 출시.** BUG-002~007이 open이고 waiver는 RTL 담당자 결정 대기입니다.
   Zybo Z7-10 보드 시험을 다시 해서 JTAG 7/7, ARM C 7/7 PASS입니다.
 

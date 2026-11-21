@@ -155,8 +155,8 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
   <div class="stats" role="list">
     <div class="stat" role="listitem"><span class="v">100%</span><span class="k">functional coverage (unit·top, 테스트 29종)</span></div>
     <div class="stat bug" role="listitem"><span class="v">7 + 3</span><span class="k">RTL 버그 + 설계 노트</span></div>
-    <div class="stat" role="listitem"><span class="v">123</span><span class="k">검사 (uvm_error·SVA)를 기준선으로 관리</span></div>
-    <div class="stat" role="listitem"><span class="v">260</span><span class="k">full 회귀 실행, fail 0 (xfail 50은 등록된 버그 재현)</span></div>
+    <div class="stat" role="listitem"><span class="v">125</span><span class="k">검사 (uvm_error·SVA)를 기준선으로 관리</span></div>
+    <div class="stat" role="listitem"><span class="v">265</span><span class="k">full 회귀 실행, fail 0 (xfail 50은 등록된 버그 재현)</span></div>
   </div>
   <div class="stack">
     <span class="chip">SystemVerilog / UVM</span><span class="chip">SVA</span><span class="chip">Vivado 2022.2 XSim</span>
@@ -334,7 +334,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <div class="panel">
       <h3>검증 결과를 믿을 수 있게 하는 장치</h3>
       <ul class="clean" style="margin-top:10px">
-        <li><b>검사 목록 기준선</b>: 검사가 줄거나 억제 구문이 늘면 실패. 기준선은 사람이 승인할 때만 바뀜 (57 → 69 → 123개)</li>
+        <li><b>검사 목록 기준선</b>: 검사가 줄거나 억제 구문이 늘면 실패. 기준선은 사람이 승인할 때만 바뀜 (57 → 69 → 123 → 125개)</li>
         <li><b>결과 출처 기록</b>: 모든 결과에 커밋, 수정 여부, RTL 내용 해시, 재실행 명령. 출처가 다른 결과가 섞이면 sign-off FAIL</li>
         <li><b>단계 gate</b>: 단계를 끝냈다는 판정은 글이 아니라 스크립트 결과로. 재설계 7개 단계를 각각 gate PASS로 닫음</li>
         <li><b>hook</b>: RTL 수정, 시뮬레이터 직접 호출, 근거 없는 <code>known_fail</code> 등록을 차단. hook 자체의 회귀 테스트 50개</li>
@@ -346,15 +346,15 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 
 <section aria-labelledby="s-ci">
   <div class="sec-head"><span class="eyebrow">04 · CI/CD</span><h2 id="s-ci">Jenkins 회귀 파이프라인과 Sign-off</h2></div>
-  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다. smoke는 ML 회귀 계획(06 참고)에 계획 밖의 새 테스트를 더해 돌리고, 목표 bin 183개를 모두 채웠는지 확인합니다. 아래는 main 병합 뒤 빌드의 단계입니다. 회귀 수와 시간은 smoke #35(58회, 13.8분) / full #34(260회, 41.6분)이고, Plan coverage는 smoke에서만, 비트스트림은 full에서만 돕니다.</p>
-  <div class="pipe" aria-label="main 빌드 #35(smoke)와 #34(full) 단계">
+  <p>로컬과 CI가 같은 Python 스크립트(<code>sim.py</code>, <code>regress.py</code>)를 써서 결과가 항상 같습니다. push마다 smoke, 매일 밤 full 회귀가 돕니다. smoke는 ML 회귀 계획(06 참고)에 계획 밖의 새 테스트를 더해 돌리고, 목표 bin 183개를 모두 채웠는지 확인합니다. 아래는 main 병합 뒤 빌드의 단계입니다. 회귀 수와 시간은 smoke #35(58회, 13.8분) / full #40(265회, 36.4분)이고, Plan coverage는 smoke에서만, 비트스트림은 full에서만 돕니다.</p>
+  <div class="pipe" aria-label="main 빌드 #35(smoke)와 #40(full) 단계">
     <div class="stage"><span class="s">Plan · Lint</span><span class="t">정적 gate + 컴파일</span></div>
-    <div class="stage"><span class="s">Unit regression</span><span class="t">smoke 31 · 308s<br>full 155 · 576s</span></div>
-    <div class="stage"><span class="s">Top regression</span><span class="t">smoke 27 · 162s<br>full 105 · 346s</span></div>
+    <div class="stage"><span class="s">Unit regression</span><span class="t">smoke 31 · 308s<br>full 155 · 516s</span></div>
+    <div class="stage"><span class="s">Top regression</span><span class="t">smoke 27 · 162s<br>full 110 · 326s</span></div>
     <div class="stage"><span class="s">Plan coverage</span><span class="t">183/183 bin<br>smoke만</span></div>
-    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014<br>176~187s</span></div>
+    <div class="stage"><span class="s">FPGA timing (OOC)</span><span class="t">WNS +0.014<br>168~187s</span></div>
     <div class="stage"><span class="s">Coverage HTML</span><span class="t">6 TB · 100%</span></div>
-    <div class="stage"><span class="s">Bitstream · XSA</span><span class="t">full만 · WNS +0.003<br>1247s</span></div>
+    <div class="stage"><span class="s">Bitstream · XSA</span><span class="t">full만 · WNS +0.003<br>1037s</span></div>
   </div>
   <div class="two">
     <div class="panel scroll">
@@ -372,6 +372,7 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
       <table>
         <thead><tr><th>빌드</th><th>결과</th><th>runs</th><th>시간</th></tr></thead>
         <tbody>
+          <tr><td class="num">#40 · 새 테스트 추가 뒤 full</td><td><span class="pill ok">SUCCESS</span></td><td class="num">265 · fail 0</td><td class="num">36.4 min</td></tr>
           <tr><td class="num">#34 · main 병합 뒤 full</td><td><span class="pill ok">SUCCESS</span></td><td class="num">260 · fail 0</td><td class="num">41.6 min</td></tr>
           <tr><td class="num">#32 · main 병합 뒤</td><td><span class="pill ok">SUCCESS</span></td><td class="num">58 · fail 0</td><td class="num">약 31 min</td></tr>
           <tr><td class="num">브랜치 #12 · 재설계 뒤 full</td><td><span class="pill ok">SUCCESS</span></td><td class="num">260 · fail 0</td><td class="num">36 min</td></tr>
@@ -385,12 +386,12 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
           <tr><td class="num">#21</td><td><span class="pill ok">SUCCESS</span></td><td class="num">36 · fail 0</td><td class="num">8.8 min</td></tr>
         </tbody>
       </table>
-      <p class="note" style="margin-top:8px">#24까지는 예전 smoke(unit 전부 + top 6종, 36회, top 커버리지 약 77%)입니다. #28까지 smoke의 xfail 4, 재설계 뒤 빌드(브랜치 #11, main #32)의 xfail 10은 모두 <code>known_fail</code>로 등록된 버그 재현 테스트입니다. 재설계 뒤 full 빌드(브랜치 #12)는 260회 fail 0, xfail 50(known_fail 10개 × seed 5개), 6개 TB 커버리지 100%, 시스템 WNS +0.003ns, 비트스트림 생성, nightly sign-off PASS입니다. main에 병합한 뒤 #32(smoke)와 #34(full)도 같은 결과로 sign-off PASS였습니다.</p>
+      <p class="note" style="margin-top:8px">#24까지는 예전 smoke(unit 전부 + top 6종, 36회, top 커버리지 약 77%)입니다. #28까지 smoke의 xfail 4, 재설계 뒤 빌드(브랜치 #11, main #32)의 xfail 10은 모두 <code>known_fail</code>로 등록된 버그 재현 테스트입니다. 재설계 뒤 full 빌드(브랜치 #12)는 260회 fail 0, xfail 50(known_fail 10개 × seed 5개), 6개 TB 커버리지 100%, 시스템 WNS +0.003ns, 비트스트림 생성, nightly sign-off PASS입니다. main에 병합한 뒤 #32(smoke)와 #34(full)도 같은 결과로 sign-off PASS였습니다. 테스트를 추가한 뒤의 #40(full)은 등록 조합 53개 × seed 5개로 265회 fail 0, xfail 50, 36.4분, nightly sign-off PASS입니다.</p>
     </div>
   </div>
   <div class="panel">
     <h3>Sign-off 기준: 11개 기준을 결과 파일로 자동 판정</h3>
-    <p style="margin-top:8px">"검증이 끝났다"를 사람의 감이 아니라 기준으로 정했습니다. <code>signoff.py</code>가 회귀, 커버리지, 타이밍, 보드 결과 파일을 읽어 판정하고, Jenkins는 모든 빌드 끝에 이 판정을 남깁니다. 기준을 못 채우면 빌드가 UNSTABLE이 됩니다. 처음 적용한 빌드 #27에서 smoke sign-off PASS였고, 재설계 뒤에는 브랜치 빌드 #11이 smoke sign-off PASS, full 빌드 #12가 nightly sign-off PASS입니다. main 병합 뒤에도 #32가 smoke, #34가 nightly sign-off PASS입니다.</p>
+    <p style="margin-top:8px">"검증이 끝났다"를 사람의 감이 아니라 기준으로 정했습니다. <code>signoff.py</code>가 회귀, 커버리지, 타이밍, 보드 결과 파일을 읽어 판정하고, Jenkins는 모든 빌드 끝에 이 판정을 남깁니다. 기준을 못 채우면 빌드가 UNSTABLE이 됩니다. 처음 적용한 빌드 #27에서 smoke sign-off PASS였고, 재설계 뒤에는 브랜치 빌드 #11이 smoke sign-off PASS, full 빌드 #12가 nightly sign-off PASS입니다. main 병합 뒤에도 #32가 smoke, #34가 nightly sign-off PASS이고, 테스트 추가 뒤 #40도 nightly sign-off PASS입니다.</p>
     <div class="scroll" style="margin-top:12px">
       <table>
         <thead><tr><th>ID</th><th>기준</th><th>smoke</th><th>nightly</th><th>release</th></tr></thead>
@@ -581,7 +582,7 @@ python scripts/regress.py --plan out/ml/plan.json</pre>
 
 <footer>
   <span>저장소: <a href="https://github.com/socdesignasic/dma-uvm-verif" target="_blank" rel="noopener">github.com/socdesignasic/dma-uvm-verif</a> (검증 코드, CI, MCP, Agent 정의. RTL 제외)</span>
-  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#28과 재설계 브랜치 빌드 #11·#12, main 병합 뒤 #32·#34, 2026-11-21, 재설계 뒤 release 판정 2026-11-21, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, 두 보드 시험 재실행 2026-11-21, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
+  <span>모든 수치는 실제 실행 결과입니다 (Jenkins #21–#28과 재설계 브랜치 빌드 #11·#12, main 병합 뒤 #32·#34, 2026-11-21, 테스트 추가 뒤 full #40, 2026-11-22, 재설계 뒤 release 판정 2026-11-21, Zybo Z7-10 보드 시험 2026-11-16, C 보드 시험 2026-11-17, 두 보드 시험 재실행 2026-11-21, ML 회귀 학습 데이터 <code>out/regress/ml_data</code> 820회 2026-11-17).</span>
 </footer>
 </div>
 
